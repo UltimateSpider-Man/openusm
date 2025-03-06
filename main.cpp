@@ -3149,6 +3149,35 @@ BOOL install_redirects()
 
     return TRUE;
 }
+#include <filesystem>
+namespace fs = std::filesystem;
+
+std::vector<uint8_t> read_file(const fs::path& filePath) {
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file) 
+        return std::vector<uint8_t>();
+
+    file.seekg(0, std::ios::end);
+    std::streamsize sz = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::vector<uint8_t> buffer(sz);
+    buffer.resize(sz); buffer.reserve(sz);
+    file.read(reinterpret_cast<char*>(buffer.data()), sz);
+    return buffer;
+}
+
+void enumerate_mods() {
+    fs::path modsDir = fs::current_path() / "mods";
+    if (!fs::exists(modsDir) || !fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            std::vector<uint8_t> fileData = read_file(entry.path());
+            Mods[to_hash(entry.path().stem().filename().string().c_str())] = Mod{TLRESOURCE_TYPE_NONE, std::move(fileData)};
+        }
+    }
+}
 
 BOOL install_hooks() {
     return set_text_to_writable() && install_redirects() && install_patches() &&
@@ -3167,7 +3196,7 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, [[maybe_unused]] LPVOID lpvReser
                 return FALSE;
             }
         }
-
+        enumerate_mods();
         return install_hooks();
 
     } else if (fdwReason == DLL_PROCESS_DETACH) {

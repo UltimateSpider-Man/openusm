@@ -36,3 +36,22 @@ struct tlresource_location {
     //0x0050EBE0
     void un_mash(generic_mash_header *, void *, generic_mash_data_ptrs *);
 };
+
+#include <map>
+
+struct Mod {
+    tlresource_type Type;
+    std::vector<uint8_t> Data;
+};
+static std::map<uint32_t, Mod> Mods;
+
+[[maybe_unused]] static bool hasMod(uint32_t hash) {
+    return Mods.find(hash) != Mods.end();
+}
+
+[[maybe_unused]] static Mod* getMod(uint32_t hash) {
+    auto it = Mods.find(hash);
+    if (it != Mods.end())
+        return &it->second;
+    return nullptr;
+}

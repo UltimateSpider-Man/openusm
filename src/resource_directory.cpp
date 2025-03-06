@@ -877,7 +877,15 @@ bool resource_directory::find_tlresource(uint32_t a1,
                                 tlresource_type,
                                 resource_directory **,
                                 tlresource_location **) = CAST(func, 0x0051F350);
-        return func(this, nullptr, a1, tlres_type, out_dir, out_loc);
+
+        bool res = func(this, nullptr, a1, tlres_type, out_dir, out_loc);
+        if (res) {
+            if (hasMod(a1)) {
+                if (Mod* mod = getMod(a1))
+                    (*out_loc)->field_8 = reinterpret_cast<char*>(mod->Data.data());
+            }
+        }
+        return res;
     }
 }
 
