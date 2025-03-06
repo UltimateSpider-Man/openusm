@@ -3174,7 +3174,7 @@ void enumerate_mods() {
     for (const auto& entry : fs::directory_iterator(modsDir)) {
         if (entry.is_regular_file()) {
             std::vector<uint8_t> fileData = read_file(entry.path());
-            Mods[to_hash(entry.path().stem().filename().string().c_str())] = Mod{TLRESOURCE_TYPE_NONE, std::move(fileData)};
+            Mods[to_hash(entry.path().stem().string().c_str())] = Mod{TLRESOURCE_TYPE_NONE, std::move(fileData)};
         }
     }
 }
@@ -3196,8 +3196,10 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, [[maybe_unused]] LPVOID lpvReser
                 return FALSE;
             }
         }
-        enumerate_mods();
-        return install_hooks();
+        bool res = install_hooks();
+        if (res) 
+            enumerate_mods();
+        return res;
 
     } else if (fdwReason == DLL_PROCESS_DETACH) {
         FreeConsole();
