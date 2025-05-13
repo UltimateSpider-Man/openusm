@@ -44,7 +44,7 @@ void create_level_select_menu(debug_menu *)
 {
     assert(debug_menu::root_menu != nullptr);
     
-    level_select_menu = new debug_menu{"Level Select", debug_menu::sort_mode_t::undefined};
+    level_select_menu = new debug_menu{"Level Select", (DWORD)debug_menu::sort_mode_t::undefined};
 
     debug_menu_entry *v15 = new debug_menu_entry{level_select_menu};
 
@@ -77,7 +77,7 @@ void create_level_select_menu(debug_menu *)
     v38->set_game_flags_handler(reboot_handler);
     level_select_menu->add_entry(v38);
 
-    hero_select_menu = new debug_menu{"Hero Select", debug_menu::sort_mode_t::undefined};
+    hero_select_menu = new debug_menu{"Hero Select", (DWORD)debug_menu::sort_mode_t::undefined };
 
     auto *v28 = new debug_menu_entry {hero_select_menu};
 

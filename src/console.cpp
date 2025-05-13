@@ -529,11 +529,11 @@ void Console::handle_event(KeyEvent a2, Key_Axes a3, [[maybe_unused]] void *a4) 
                 }
 
                 strcpy(this->oldCurrent, this->current);
-            } else if (debug_menu::active_menu != nullptr) {
+            } /*else if (debug_menu::active_menu != nullptr) {
                 debug_menu::hide();
             } else {
                 debug_menu::show();
-            }
+            }*/
             break;
         case KB_TAB:
             if (this->m_visible && strlen(this->current)) {

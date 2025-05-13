@@ -691,9 +691,9 @@ extern void nglListAddString(nglFont *font,
                              Float a7,
                              Float a8);
 
-extern void nglListAddString(nglFont *a1, Float a3, Float a4, Float a5,
-                            int a6,
-                            const char *Format, ...);
+extern void nglListAddString(nglFont* a1, Float a2, Float a3, Float a4, unsigned int a5, Float a6, Float a8, const char* Format, ...);
+
+extern void nglListAddString(nglFont *a1, Float a3, Float a4, Float a5, int a6, const char *Format, ...);
 
 extern Var<char[1024]> nglFontBuffer;
 

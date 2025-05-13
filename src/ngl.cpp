@@ -4297,6 +4297,16 @@ bool sub_581C30()
     return v0->field_5C4 || v0->field_5C3;
 }
 
+void nglListAddString(nglFont* a1, Float a2, Float a3, Float a4, unsigned int a5, Float a6, Float a8, const char* Format, ...)
+{
+    char buffer[1024];
+    va_list Args;
+
+    va_start(Args, Format);
+    vsprintf(buffer, Format, Args);
+    nglListAddString(a1, buffer, a2, a3, a4, a5, a6, a8);
+}
+
 void nglListAddString(nglFont *font,
                       const char *a2,
                       Float a3,

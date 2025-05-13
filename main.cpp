@@ -2411,6 +2411,8 @@ HRESULT __stdcall HookDirectInput8Create(HINSTANCE hinst, DWORD dwVersion, REFII
 	return res;
 }
 
+// ---------------------------------------------------------------------------------------------------
+
 BOOL install_redirects()
 {
     sp_log("Installing redirects\n");
@@ -2472,7 +2474,36 @@ BOOL install_redirects()
         input_mgr_patch();
     }
 
+
+
+    if constexpr (DEBUG_MENU_REIMPL) 
+    {
+        REDIRECT(0x0052B4BF, spider_monkey::render);
+
+        HookFunc(0x004EACF0, (DWORD)aeps_RenderAll, 0, "Patching call to aeps::RenderAll");
+        HookFunc(0x0052B5D7, (DWORD)myDebugMenu, 0, "Hooking nglListEndScene to inject debug menu");
+        HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
+
+
+
+        // remaining: 
+        /*
+        WriteDWORD(0x0089C710, (DWORD) slf__create_progression_menu_entry, "Hooking first ocurrence of create_progession_menu_entry");
+	    WriteDWORD(0x0089C718, (DWORD) slf__create_progression_menu_entry, "Hooking second  ocurrence of create_progession_menu_entry");
+
+	    WriteDWORD(0x0089AF70, (DWORD) slf__create_debug_menu_entry, "Hooking first ocurrence of create_debug_menu_entry");
+	    WriteDWORD(0x0089C708, (DWORD) slf__create_debug_menu_entry, "Hooking second  ocurrence of create_debug_menu_entry");
+
+	    
+
+	    WriteDWORD(0x0089C720, (DWORD) slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry");
+	    WriteDWORD(0x0089C750, (DWORD) slf__debug_menu_entry__set_handler__str, "Hooking set_handler");        
+        */
+    }
+
+
     if constexpr (1) {
+        
         console_patch();
     } else {
         game_patch();

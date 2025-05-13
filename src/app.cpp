@@ -156,7 +156,7 @@ app::app()
     }
 
 #ifdef ENABLE_DEBUG_MENU
-    debug_menu::init();
+    //debug_menu::init();
 #endif
 
     init_shadow_targets();
