@@ -132,7 +132,7 @@ float pc_joypad_device::_get_axis_state(Axis a2, [[maybe_unused]] int a3)
 {
     float result;
 
-    sp_log("%d %d", int(a2), a3);
+    // sp_log("%d %d", int(a2), a3);
 
     if (a2 == 22) {
         result = (this->field_88 == 1);

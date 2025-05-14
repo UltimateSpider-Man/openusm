@@ -131,7 +131,7 @@ void matrix4x4::sub_415A30(const void *a2)
         {
             mString str0 {tmp.m_rel_po->m.to_string()};
             mString str1 {tmp.m_abs_po->m.to_string()};
-            sp_log("args: %s %s", str0.c_str(), str1.c_str());
+            //sp_log("args: %s %s", str0.c_str(), str1.c_str());
         }
 
         tmp.sub_48E900(a2a, a3, a4, a5);
@@ -148,7 +148,7 @@ void matrix4x4::sub_415A30(const void *a2)
         THISCALL(0x00415A30, this, &a2);
     }
 
-    sp_log("res: %s", this->to_string());
+    //sp_log("res: %s", this->to_string());
 }
 
 void matrix4x4::sub_76CF20(void *a2)

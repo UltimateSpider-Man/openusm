@@ -2124,9 +2124,9 @@ matrix4x3 transposed(const matrix4x3 &a2)
         CDECL_CALL(0x004135B0, &result, &a2);
     }
 
-    sp_log("%s", a2.to_string());
-    sp_log("%s", result.to_string());
-    sp_log("%s", a2.transposed().to_string());
+    //sp_log("%s", a2.to_string());
+    //sp_log("%s", result.to_string());
+    //sp_log("%s", a2.transposed().to_string());
 
     //assert(approx_equals(result[0][3], 0.0, LARGE_EPSILON));
     //assert(result == a2.transposed());
@@ -4185,7 +4185,7 @@ void nglQuadNode::Render()
 
 void nglListAddQuad(nglQuad *Quad)
 {
-    if constexpr (1)
+    if constexpr (0)
     {
         if (Quad != nullptr)
         {
@@ -5594,6 +5594,12 @@ void ngl_patch()
         FUNC_ADDRESS(address, &nglQuadNode::Render);
         set_vfunc(0x008B9FB4, address);
     }
+
+    {
+        auto address = func_address(&nglQuadNode::Render);
+        SET_JUMP(0x00783670, address);
+    }
+    REDIRECT(0x0076EA59, nglRenderPerfInfo);
 
     {
         FUNC_ADDRESS(address, &nglStringNode::Render);

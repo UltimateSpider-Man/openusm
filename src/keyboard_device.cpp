@@ -80,7 +80,7 @@ float keyboard_device::_get_axis_state(int axis, int a3)
 {
     TRACE("keyboard_device::get_axis_state");
 
-    sp_log("axis = %d, %d", axis, a3);
+    // sp_log("axis = %d, %d", axis, a3);
 
     if (Input::instance() != nullptr)
     {

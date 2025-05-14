@@ -337,13 +337,13 @@ void nglSetupVShaderBonesDX(int a5, nglMeshNode *MeshNode, nglMeshSection *Secti
                                                              &tmp[0][0].x,
                                                              3 * 2);
 
-        sp_log("%s", tmp[0].to_string());
-        sp_log("%s", tmp[1].to_string());
+        //sp_log("%s", tmp[0].to_string());
+        //sp_log("%s", tmp[1].to_string());
 
         float f[4] {};
         g_Direct3DDevice()->lpVtbl->GetVertexShaderConstantF(g_Direct3DDevice(), 90u, f, 1u);
 
-        sp_log("%f %f %f %f", f[0], f[1], f[2], f[3]);
+        //sp_log("%f %f %f %f", f[0], f[1], f[2], f[3]);
     }
 }
 

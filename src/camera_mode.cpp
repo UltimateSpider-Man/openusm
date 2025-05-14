@@ -7,7 +7,7 @@
 #include "common.h"
 #include "custom_math.h"
 #include "game.h"
-#include "game_settings.h"
+#include "game_settings.h" 
 #include "input_mgr.h"
 #include "oldmath_usefulmath.h"
 #include "settings.h"
@@ -143,7 +143,7 @@ void camera_mode_shake::_frame_advance(
     TRACE("camera_mode_shake::frame_advance");
 
     if (this->field_8 != nullptr) {
-        sp_log("0x%08X", this->field_8->m_vtbl);
+        // sp_log("0x%08X", this->field_8->m_vtbl);
     }
 
     THISCALL(0x004B6CE0, this, a2, &a3, &a4);

@@ -25,7 +25,7 @@ void script_controller::update()
 
     {
         auto v1 = input_mgr::instance->field_58;
-        sp_log("0x%X", v1);
+        // sp_log("0x%X", v1);
     }
 
     if constexpr (0)

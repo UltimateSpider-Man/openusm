@@ -271,7 +271,7 @@ void input_mgr::insert_device(input_device *a2)
 {
     TRACE("input_mgr::insert_device");
 
-    sp_log("0x%X", a2->get_id());
+    // sp_log("0x%X", a2->get_id());
 
     if constexpr(0)
     {
@@ -319,7 +319,7 @@ void input_mgr::poll_devices()
 {
     TRACE("input_mgr::poll_devices");
 
-    sp_log("%d", this->field_8.size());
+    // sp_log("%d", this->field_8.size());
 
     if constexpr (0)
     {

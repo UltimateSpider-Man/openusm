@@ -80,7 +80,7 @@ void * __fastcall player_controller_inode__get_button(ai::player_controller_inod
         ai::controller_inode::eControllerButton a3)
 {
     TRACE("player_controller_inode::get_button");
-    sp_log("%d", int(a3));
+    // sp_log("%d", int(a3));
 
     game_button * (__fastcall *func)(void *, void *, game_button *, ai::controller_inode::eControllerButton) = CAST(func, 0x00467E10);
     func(self, nullptr, out, a3);

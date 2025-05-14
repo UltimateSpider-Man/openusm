@@ -1306,7 +1306,7 @@ void USPersonNode::_Render()
         auto &v2 = this->m_meshNode->field_8C;
         USPersonParam def_param {&DefaultParams()};
         auto *params = v2.GetOrDefault<USPersonParam>(def_param)->field_0;
-        sp_log("field_30 = %f, field_34 = %f, field_38 = %s, field_3C = %d, disableOutline = %s, mask = 0x%X, disableZDepth = %s",
+        /*sp_log("field_30 = %f, field_34 = %f, field_38 = %s, field_3C = %d, disableOutline = %s, mask = 0x%X, disableZDepth = %s",
                 params->field_30,
                 params->field_34,
                 params->field_38 ? "true" : "false",
@@ -1314,7 +1314,7 @@ void USPersonNode::_Render()
                 params->field_41 ? "true" : "false",
                 params->field_44,
                 params->disableZDepth ? "true" : "false");
-
+                */
         //params->field_38 = false;
         //this->m_material->field_3C = 1;
         //this->m_material->field_40 = 0; //VS_IDX = 1
@@ -1327,19 +1327,19 @@ void USPersonNode::_Render()
 
             matrix4x4 v53;
             v53.sub_415650(v59);
-            sp_log("%s", v53.to_string());
+            //sp_log("%s", v53.to_string());
         }
 
         auto *file = this->m_material->File;
-        sp_log("material = %s, mesh_file = %s", this->m_material->Name->to_string(), file->FileName.to_string());
+        //sp_log("material = %s, mesh_file = %s", this->m_material->Name->to_string(), file->FileName.to_string());
 
-        sp_log("tex0 = %s", this->field_1C->field_60.to_string());
-        sp_log("tex1 = %s", this->field_20->field_60.to_string());
+        //sp_log("tex0 = %s", this->field_1C->field_60.to_string());
+        //sp_log("tex1 = %s", this->field_20->field_60.to_string());
 
-        sp_log("blend_mode = %u", this->m_material->m_blend_mode);
+        //sp_log("blend_mode = %u", this->m_material->m_blend_mode);
 
-        sp_log("%s", this->m_meshNode->field_0.to_string());
-        sp_log("%s", this->m_meshNode->field_40.to_string());
+        //sp_log("%s", this->m_meshNode->field_0.to_string());
+        //sp_log("%s", this->m_meshNode->field_40.to_string());
     }
 
     if constexpr (0)
