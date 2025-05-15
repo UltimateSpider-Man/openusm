@@ -12,8 +12,6 @@ class vm_stack {
 
 public:
     char *buffer;
-
-private:
     char *SP;
     vm_thread *my_thread;
 

@@ -14,7 +14,7 @@ static debug_menu *script_menu = nullptr;
 
 static debug_menu *progression_menu = nullptr;
 
-static int vm_debug_menu_entry_garbage_collection_id = -1;
+int vm_debug_menu_entry_garbage_collection_id = -1;
 
 void init_script_debug_menu()
 {

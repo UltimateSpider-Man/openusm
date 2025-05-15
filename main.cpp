@@ -2039,7 +2039,7 @@ void register_class_and_create_window(LPCSTR lpClassName,
 
     register_class(lpClassName, windowProc, hInstance, a9);
 
-    bool wnd = WINDOWED_MODE_WND_FIX?  !(bool)g_config.WindowedMode : true;
+    bool wnd = WINDOWED_MODE_WND_FIX?  !g_config.WindowedMode : true;
     create_window(lpClassName, lpWindowName, hInstance, X, Y, a5, a6, (int)wnd);
 }
 
@@ -3562,7 +3562,7 @@ void create_devopt_menu(debug_menu* parent)
 
     auto* v22 = create_menu("Devopts", handle_game_entry, 300);
 
-    for (auto idx = 0u; idx < NUM_OPTIONS-76; ++idx)
+    for (auto idx = 0u; idx < NUM_OPTIONS; ++idx)
     {
         auto* v21 = get_option(idx);
         switch (v21->m_type)
@@ -3735,6 +3735,123 @@ void init_shadow_targets2()
 }
 
 
+
+uint8_t __stdcall slf__debug_menu_entry__set_handler__str(vm_stack* stack, void* unk) {
+
+    stack->pop(8);
+
+    void** params = (void**)stack->SP;
+
+    debug_menu_entry* entry = static_cast<decltype(entry)>(params[0]);
+    const char* scrpttext = static_cast<char*>(params[1]);
+
+    string_hash strhash{ scrpttext };
+
+    script_instance* instance = stack->my_thread->inst;
+    entry->set_script_handler(instance, mString{ scrpttext });
+
+    return true;
+}
+
+uint8_t __stdcall slf__destroy_debug_menu_entry__debug_menu_entry(vm_stack* function, void* unk) {
+
+    function->pop(4);
+
+    debug_menu_entry** entry = (decltype(entry))function->SP;
+
+    remove_debug_menu_entry(*entry);
+
+    return 1;
+}
+
+void sub_65BB36(script_library_class::function* func, vm_stack* stack, char* a3, int a4)
+{
+    for (auto i = 0; i < a4; ++i)
+    {
+        if (*bit_cast<DWORD*>(&a3[4 * i]) == 0x7BAD05CF)
+        {
+            printf("uninitialized parameters in call to 0x%08X", func->m_vtbl);
+
+            //v5 = j_vm_stack::get_thread(stack);
+            //vm_thread::slf_error(v5, v6);
+
+            assert(0 && "uninitialized parameters in call to script library function");
+        }
+    }
+}
+
+uint8_t __fastcall slf__create_progression_menu_entry(script_library_class::function* func, void*, vm_stack* stack, void* unk) {
+
+    stack->pop(8);
+
+    auto* stack_ptr = bit_cast<char*>(stack->SP);
+    sub_65BB36(func, stack, stack_ptr, 2);
+
+    char** strs = (char**)stack->SP;
+
+    printf("Entry: %s -> %s\n", strs[0], strs[1]);
+
+    string_hash strhash{ strs[1] };
+
+    script_instance* instance = stack->my_thread->inst;
+
+    debug_menu_entry entry{ strs[0] };
+    entry.set_script_handler(instance, { strs[1] });
+
+    progression_menu->add_entry(&entry);
+
+    int push = 0;
+    auto sz = sizeof(push);
+    memcpy((void*)stack->SP, &push, sz);
+    stack->SP += sz;
+    return true;
+}
+
+bool __fastcall slf__create_debug_menu_entry(script_library_class::function* func, void*, vm_stack* stack, void* unk)
+{
+    stack->pop(4);
+
+    auto* stack_ptr = bit_cast<char*>(stack->SP);
+    sub_65BB36(func, stack, stack_ptr, 1);
+    char** strs = bit_cast<char**>(stack->SP);
+
+    //printf("Entry: %s ", strs[0]);
+
+    debug_menu_entry entry{};
+    entry.entry_type = debug_menu_entry_type::dUNDEFINED;
+    strcpy(entry.text, strs[0]);
+
+    printf("entry.text = %s\n", entry.text);
+
+    script_instance* instance = stack->my_thread->inst;
+    printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
+
+    void* res = add_debug_menu_entry(script_menu, &entry);
+
+    script_executable* se = stack->my_thread->ex->owner->parent;
+    printf("total_script_objects = %d\n", se->total_script_objects);
+    for (auto i = 0; i < se->total_script_objects; ++i) {
+        auto* so = se->script_objects[i];
+        printf("Name of script_object = %s\n", so->name.to_string());
+
+        for (auto i = 0; i < so->total_funcs; ++i) {
+            printf("Func name: %s\n", so->funcs[i]->name.to_string());
+        }
+
+        printf("\n");
+    }
+
+    se->add_allocated_stuff(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
+
+    //printf("%08X\n", res);
+
+    int push = (int)res;
+    auto sz = sizeof(push);
+    memcpy((void*)stack->SP, &push, sz);
+    stack->SP += sz;
+    return 1;
+}
+
 // ---------------------------------------------------------------------------------------------------
 
 BOOL install_redirects()
@@ -3820,19 +3937,15 @@ BOOL install_redirects()
         HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
         REDIRECT(0x005E10EE, init_shadow_targets2);
 
-        // remaining: 
-        /*
-        WriteDWORD(0x0089C710, (DWORD) slf__create_progression_menu_entry, "Hooking first ocurrence of create_progession_menu_entry");
-        WriteDWORD(0x0089C718, (DWORD) slf__create_progression_menu_entry, "Hooking second  ocurrence of create_progession_menu_entry");
-
-        WriteDWORD(0x0089AF70, (DWORD) slf__create_debug_menu_entry, "Hooking first ocurrence of create_debug_menu_entry");
-        WriteDWORD(0x0089C708, (DWORD) slf__create_debug_menu_entry, "Hooking second  ocurrence of create_debug_menu_entry");
-
-
-
-        WriteDWORD(0x0089C720, (DWORD) slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry");
-        WriteDWORD(0x0089C750, (DWORD) slf__debug_menu_entry__set_handler__str, "Hooking set_handler");
-        */
+        auto writeDWORD = [](int address, DWORD newValue, const char* reason) -> void {
+            *((DWORD*)address) = newValue;
+        };
+        writeDWORD(0x0089C710, (DWORD)slf__create_progression_menu_entry, "Hooking first ocurrence of create_progession_menu_entry");
+        writeDWORD(0x0089C718, (DWORD)slf__create_progression_menu_entry, "Hooking second  ocurrence of create_progession_menu_entry");
+        writeDWORD(0x0089AF70, (DWORD)slf__create_debug_menu_entry, "Hooking first ocurrence of create_debug_menu_entry");
+        writeDWORD(0x0089C708, (DWORD)slf__create_debug_menu_entry, "Hooking second  ocurrence of create_debug_menu_entry");
+        writeDWORD(0x0089C720, (DWORD)slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry");
+        writeDWORD(0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler");
     }
 
     return true;

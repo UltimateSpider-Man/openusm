@@ -39,8 +39,6 @@ struct vm_symbol {
 class script_object {
 public:
     string_hash name;
-
-private:
     script_executable *parent;
     script_instance *global_instance;
 
@@ -200,7 +198,6 @@ private:
 public:
     vm_executable *field_28;
 
-private:
     script_object *parent;
     uint32_t flags;
     void (* m_callback)(script_instance_callback_reason_t, script_instance *, vm_thread *, void *);
