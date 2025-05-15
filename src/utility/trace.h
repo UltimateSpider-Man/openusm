@@ -14,7 +14,7 @@ struct trace_obj
 };                                                                              
 
 
-#if 1 
+#if 0
 
 #define TRACE(func_name, ...)                                                       \
     trace_obj tr{func_name};                                                        \
