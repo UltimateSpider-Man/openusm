@@ -7,7 +7,14 @@
 
 #include <cassert>
 
-static constexpr auto NUM_HEROES = 10;
+debug_menu* level_select_menu = nullptr;
+debug_menu* hero_select_menu = nullptr;
+
+int hero_status;
+int hero_selected;
+
+const char* hero_list[] = { "arachno_man_costume" };
+
 
 level_descriptor_t *get_level_descriptors(int *)
 {
@@ -24,9 +31,6 @@ void hero_entry_callback(debug_menu_entry *)
 {
 }
 
-int hero_status;
-int hero_selected;
-
 void hero_toggle_handler(debug_menu_entry *entry)
 {
     assert(entry->get_id() < NUM_HEROES);
@@ -34,12 +38,6 @@ void hero_toggle_handler(debug_menu_entry *entry)
     hero_selected = entry->get_id();
     hero_status = 1;
 }
-
-debug_menu *level_select_menu = nullptr;
-debug_menu *hero_select_menu = nullptr;
-
-const char *hero_list[] = {"arachno_man_costume"};
-
 void create_level_select_menu(debug_menu *)
 {
     assert(debug_menu::root_menu != nullptr);

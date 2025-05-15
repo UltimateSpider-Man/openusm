@@ -561,7 +561,7 @@ void frame_advance(Float a2)
         CDECL_CALL(0x00558D20, a2);
     }
 
-#ifdef ENABLE_DEBUG_MENU
+#if defined(ENABLE_DEBUG_MENU) && DEBUG_MENU_REIMPL == 0
     debug_menu::frame_advance(a2);
 #endif
 }

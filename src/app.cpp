@@ -78,10 +78,10 @@ void init_shadow_targets()
 {
     TRACE("init_shadow_targets");
 
-#ifdef ENABLE_DEBUG_MENU
+#if defined(ENABLE_DEBUG_MENU) && DEBUG_MENU_REIMPL == 0
     debug_menu::init();
 #endif
-
+    
     sub_592E40();
 
     tlFixedString v1;
@@ -155,7 +155,7 @@ app::app()
         mem_print_stats("after link_system::init()");
     }
 
-#ifdef ENABLE_DEBUG_MENU
+#if defined(ENABLE_DEBUG_MENU) && !DEBUG_MENU_REIMPL
     //debug_menu::init();
 #endif
 

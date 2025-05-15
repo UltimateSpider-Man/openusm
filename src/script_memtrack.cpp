@@ -48,7 +48,8 @@ entity_class_t *find_entity_class(entity_base_vhandle a1)
 
 void populate_entity_class_menu(debug_menu_entry *arg0)
 {
-    auto &name = arg0->get_name();
+    // @todo: debug menu
+    /*auto& name = arg0->get_name();
     auto *a1 = create_menu(name, debug_menu::sort_mode_t::undefined);
     arg0->set_submenu(a1);
 
@@ -67,7 +68,7 @@ void populate_entity_class_menu(debug_menu_entry *arg0)
             entry->set_value_initialized(true);
             a1->add_entry(entry);
         }
-    }
+    }*/
 }
 
 mString entity_class_render_callback(debug_menu_entry *a2)
@@ -88,12 +89,13 @@ entity_class_t *create_entity_class(const mString &a1)
     script_memtrack::name_to_class_map.insert({entity_class->field_0, entity_class});
     
     if (script_memtrack_debug_menu != nullptr) {
-        auto *v10 = create_menu_entry(entity_class->field_0);
+        // @todo: debug menu
+        /*auto* v10 = create_menu_entry(entity_class->field_0);
         v10->set_submenu(nullptr);
         v10->set_game_flags_handler(populate_entity_class_menu);
         v10->set_render_cb(entity_class_render_callback);
         v10->set_data(entity_class);
-        script_memtrack_debug_menu->add_entry(v10);
+        script_memtrack_debug_menu->add_entry(v10);*/
     }
 
     return entity_class;

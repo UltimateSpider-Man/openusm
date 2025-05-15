@@ -1,5 +1,8 @@
 #pragma once
 
+#define DEBUG_MENU_REIMPL 1
+#define ENABLE_DEBUG_MENU 1
+
 #include "color32.h"
 #include "float.hpp"
 #include "game_button.h"

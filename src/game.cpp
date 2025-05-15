@@ -2719,8 +2719,8 @@ void game::render_ui()
         if constexpr (1) {
             g_console->render();
 
-#ifdef ENABLE_DEBUG_MENU
-            debug_menu::render_active();
+#if defined(ENABLE_DEBUG_MENU) && DEBUG_MENU_REIMPL != 1
+           debug_menu::render_active();
 #endif
         }
 

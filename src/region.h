@@ -190,6 +190,11 @@ struct region
     //0x0054FEC0
     void un_mash_lego_map(char *a2, int *a3);
 
+    int get_district_variant_count() const
+    {
+        return bit_cast<int*>(bit_cast<char*>(this) + 0xC8)[0];
+    }
+
     static inline uint32_t & visit_key = var<uint32_t>(0x0095C914);
 
 	static inline int & visit_key1 = var<int>(0x0095C918);

@@ -20,9 +20,9 @@ void init_script_debug_menu()
 {
     if ( script_menu == nullptr )
     {
-        script_menu = new debug_menu {"Script", debug_menu::sort_mode_t::undefined};
+        script_menu = new debug_menu {"Script", (DWORD)debug_menu::sort_mode_t::undefined};
 
-        progression_menu = new debug_menu {"Progression", debug_menu::sort_mode_t::undefined};
+        progression_menu = new debug_menu {"Progression", (DWORD)debug_menu::sort_mode_t::undefined};
 
         debug_menu::root_menu->add_entry(script_menu);
         debug_menu::root_menu->add_entry(progression_menu);
@@ -38,7 +38,9 @@ void vm_debug_menu_entry_garbage_collection_callback(script_executable *,
         assert(script_menu != nullptr);
 
         auto *entry = bit_cast<debug_menu_entry *>(v2);
-        script_menu->remove_entry(entry);
+        
+        // script_menu->remove_entry(entry);
+        remove_debug_menu_entry(entry);
     }
 }
 
@@ -80,6 +82,7 @@ bool slf__create_debug_menu_entry__str__str__t::operator()(vm_stack &stack, [[ma
         auto *v6 = nt->get_executable();
         auto *so = v6->get_owner();
         auto *v8 = so->get_parent();
+
         v8->add_allocated_stuff(v10, v11, v16);
         script_menu->add_entry(result);
 
