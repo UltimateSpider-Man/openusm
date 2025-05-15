@@ -659,13 +659,13 @@ void populate_warp_menu(debug_menu_entry *entry)
             auto *reg = the_terrain->get_region(idx);
             if ( (reg->flags & 0x4000) != 0 )
             {
-                /*auto& name = reg->get_name();
+                auto& name = reg->get_name();
                 auto *v4 = name.to_string();
 
                 debug_menu_entry v15 {mString {v4}};
                 v15.set_id(idx);
                 v15.set_game_flags_handler(warp_handler);
-                v20->add_entry(&v15);*/
+                v20->add_entry(&v15);
             }
         }
     }
