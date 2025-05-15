@@ -2,6 +2,7 @@
 
 #define DEBUG_MENU_REIMPL 1
 #define ENABLE_DEBUG_MENU 1
+#define WINDOWED_MODE_WND_FIX 1
 
 #include "color32.h"
 #include "float.hpp"

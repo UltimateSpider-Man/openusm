@@ -47,6 +47,8 @@
 
 #include <cassert>
 
+GameConfig g_config;
+
 VALIDATE_SIZE(app, 0x3Cu);
 
 VALIDATE_OFFSET(app, m_game, 0x30);

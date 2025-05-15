@@ -5,6 +5,17 @@
 
 #include <windows.h>
 
+// @todo: global config
+struct GameConfig {
+	bool DebugMode = false;
+
+	bool WindowedMode = false;
+};
+
+extern GameConfig g_config;
+
+
+
 struct string_hash;
 struct Input;
 struct InputSettings;

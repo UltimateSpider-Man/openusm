@@ -322,9 +322,35 @@ BOOL restore_text_perms() {
     return VirtualProtect((void*)(TEXT_START), TEXT_END - TEXT_START, old_perms, &old_perms);
 }
 
+void ToggleFullScreen(bool isFullscreen)
+{
+    ESI_CALL(0x0076D230, isFullscreen);
+
+    // fix focus adjustment
+    os_developer_options::instance->set_flag(mString{ "ALWAYS_ACTIVE" }, g_config.WindowedMode);
+}
+
+
+void init_hook(HWND hwnd) {
+    
+    bool windowedMode = g_config.WindowedMode;
+
+    g_Windowed() = windowedMode;
+    CDECL_CALL(0x0076E3E0, hwnd);
+
+    g_Windowed() = windowedMode;
+    ToggleFullScreen(windowedMode);
+}
+
+
 BOOL install_patches()
 {
     sp_log("Installing patches\n");
+
+
+    // @todo: global config
+    REDIRECT(0x005AD218, init_hook);
+
 
     // @todo: debug menu
     {
@@ -2012,7 +2038,9 @@ void register_class_and_create_window(LPCSTR lpClassName,
     }
 
     register_class(lpClassName, windowProc, hInstance, a9);
-    create_window(lpClassName, lpWindowName, hInstance, X, Y, a5, a6, dwStyle);
+
+    bool wnd = WINDOWED_MODE_WND_FIX?  !(bool)g_config.WindowedMode : true;
+    create_window(lpClassName, lpWindowName, hInstance, X, Y, a5, a6, (int)wnd);
 }
 
 unsigned int hook_controlfp(unsigned int, unsigned int) {
@@ -3777,6 +3805,11 @@ BOOL install_redirects()
         game_patch();
     }
 
+
+    // @todo: windowed
+    REDIRECT(0x005AC4A9, register_class_and_create_window);
+
+
     // @todo: debug menu
     if constexpr (DEBUG_MENU_REIMPL)
     {
@@ -4514,12 +4547,18 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, [[maybe_unused]] LPVOID lpvReser
     if (fdwReason == DLL_PROCESS_ATTACH) {
         char *args = GetCommandLine();
         if (strstr(args, " -console")) {
+            g_config.DebugMode = true;
+
             AllocConsole();
             if (!freopen("CONOUT$", "w", stdout)) {
                 MessageBoxA(NULL, "Error", "Couldn't allocate console...Closing", 0);
                 return FALSE;
             }
         }
+
+        if (strstr(args, " -windowed"))
+            g_config.WindowedMode = true;
+
         bool res = install_hooks();
         if (res) 
             enumerate_mods();
