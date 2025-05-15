@@ -3510,9 +3510,9 @@ void menu_setup(int game_state, int keyboard) {
             current_menu = debug_menu::root_menu;
         }
 
-        // populate_missions_menu(missions_menu);
+        populate_missions_menu(missions_menu);
 
-        //create_game_flags_menu(game_menu);
+        create_game_flags_menu(game_menu);
 
          /*if (level_select_menu->used_slots == 0)
          {
@@ -3534,7 +3534,7 @@ void create_devopt_menu(debug_menu* parent)
 
     auto* v22 = create_menu("Devopts", handle_game_entry, 300);
 
-    for (auto idx = 0u; idx < NUM_OPTIONS; ++idx)
+    for (auto idx = 0u; idx < NUM_OPTIONS-76; ++idx)
     {
         auto* v21 = get_option(idx);
         switch (v21->m_type)
