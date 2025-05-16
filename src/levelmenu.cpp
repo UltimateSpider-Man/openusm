@@ -1,5 +1,7 @@
 #include "levelmenu.h"
 
+#if DEBUG_MENU_REIMPL == 0
+
 #include "debug_menu.h"
 #include "resource_manager.h"
 #include "common.h"
@@ -98,3 +100,4 @@ void create_level_select_menu(debug_menu *)
         }
     }
 }
+#endif
