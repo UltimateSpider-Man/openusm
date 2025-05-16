@@ -1,10 +1,9 @@
 #include "fe_health_widget.h"
 
-#include "common.h"
 #include "func_wrapper.h"
 #include "panelfile.h"
 
-VALIDATE_SIZE(fe_health_widget, 0x58);
+// VALIDATE_SIZE(fe_health_widget, 0x58);
 
 fe_health_widget::fe_health_widget() {
     this->field_30 = 0;

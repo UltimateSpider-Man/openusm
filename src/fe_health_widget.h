@@ -1,5 +1,8 @@
 #pragma once
 
+
+#include "config.h"
+
 struct PanelQuad;
 struct PanelFile;
 
@@ -33,4 +36,12 @@ struct fe_health_widget {
     void Init(int a2, const char *a3, bool a4);
 
     void DeInit(int a2);
+
+
+    void SetType(int the_type, int a3)
+    {
+        void(__fastcall * func)(void*, void*, int, int) = bit_cast<decltype(func)>(0x00641BC0);
+
+        func(this, nullptr, the_type, a3);
+    }
 };

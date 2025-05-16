@@ -1,5 +1,7 @@
 #pragma once
 
+
+#include "config.h"
 #include "ai_std_hero.h"
 #include "anchor_storage_class.h"
 #include "float.hpp"
