@@ -570,7 +570,7 @@ bool get_pack_file_stats(const resource_key &a1, resource_pack_location *a2, mSt
 {
     TRACE("resource_manager::get_pack_file_stats", a1.get_platform_string(g_platform).c_str());
 
-    if constexpr (1)
+    if constexpr (0)
     {
         assert(amalgapak_pack_location_table != nullptr);
 
