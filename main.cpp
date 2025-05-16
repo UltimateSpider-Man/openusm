@@ -2754,9 +2754,8 @@ debug_menu* game_menu = nullptr;
 debug_menu* missions_menu = nullptr;
 debug_menu* script_menu = nullptr;
 debug_menu* progression_menu = nullptr;
-#if DEBUG_MENU_REIMPL == 1
-    //debug_menu* level_select_menu = nullptr;
-#endif
+debug_menu* level_select_menu = nullptr;
+debug_menu* dvars_menu  = nullptr;
 
 debug_menu** all_menus[] = {
     &debug_menu::root_menu,
@@ -2764,7 +2763,8 @@ debug_menu** all_menus[] = {
     &missions_menu,
     &script_menu,
     &progression_menu,
-    &level_select_menu
+    &level_select_menu,
+    &dvars_menu,
 };
 
 void remove_debug_menu_entry(debug_menu_entry* entry) {
@@ -3237,6 +3237,74 @@ void create_entity_animation_menu(debug_menu* parent)
     v5.set_game_flags_handler(populate_entity_animation_menu);
     parent->add_entry(&v5);
 }
+static const float flt_881AC0 = 0.5;
+static const float flt_882098 = 2.5;
+static const float flt_87EA34 = 0.75;
+static const float flt_8820A0 = 0.66000003;
+static const float flt_87EEDC = 0.69999999;
+
+auto _g_camera_min_dist = Var<float>(0x00881AB4);
+
+auto _g_camera_max_dist = Var<float>(0x00881AB8);
+
+auto _g_camera_supermax_dist = Var<float>(0x00881ABC);
+
+static auto _g_base_factor = Var<float>(0x0091F6D8);
+
+static auto _g_snow_balling = Var<float>(0x0091F6DC);
+
+static auto _g_jump_cap_vel = Var<float>(0x0091F6E0);
+
+void populate_dvars(debug_menu_entry* entry)
+{
+
+    auto* v7 = create_menu("Dvars", debug_menu::sort_mode_t::undefined);
+    entry->set_submenu(v7);
+
+    auto* base_factor = create_menu_entry(mString{ "base_factor" });
+    const float v10[4]{ -1000.0, 1000.0, 0.5, 10.0 };
+    base_factor->set_fl_values(v10);
+    base_factor->set_pt_fval(&_g_base_factor());
+    v7->add_entry(base_factor);
+
+    auto* camera_min_dist = create_menu_entry(mString{ "camera_min_dist" });
+    const float v5[4]{ -1000.0, 1000.0, 0.5, 10.0 };
+    camera_min_dist->set_fl_values(v5);
+    camera_min_dist->set_pt_fval(&_g_camera_min_dist());
+    v7->add_entry(camera_min_dist);
+
+    auto* camera_max_dist = create_menu_entry(mString{ "camera_max_dist" });
+    const float v6[4]{ -1000.0, 1000.0, 0.5, 10.0 };
+    camera_max_dist->set_fl_values(v6);
+    camera_max_dist->set_pt_fval(&_g_camera_max_dist());
+    v7->add_entry(camera_max_dist);
+
+    auto* camera_supermax_dist = create_menu_entry(mString{ "camera_supermax_dist" });
+    const float v9[4]{ -1000.0, 1000.0, 0.5, 10.0 };
+    camera_supermax_dist->set_fl_values(v9);
+    camera_supermax_dist->set_pt_fval(&_g_camera_supermax_dist());
+    v7->add_entry(camera_supermax_dist);
+
+    auto* jump_cap_vel = create_menu_entry(mString{ "jump_cap_vel" });
+    const float v11[4]{ -1000.0, 1000.0, 0.5, 10.0 };
+    jump_cap_vel->set_fl_values(v11);
+    jump_cap_vel->set_pt_fval(&_g_jump_cap_vel());
+    v7->add_entry(jump_cap_vel);
+
+    auto* snow_balling = create_menu_entry(mString{ "snow_balling" });
+    const float v12[4]{ -1000.0, 1000.0, 0.5, 10.0 };
+    snow_balling->set_fl_values(v12);
+    snow_balling->set_pt_fval(&_g_snow_balling());
+    v7->add_entry(snow_balling);
+}
+
+void create_dvars_menu(debug_menu* arg0)
+{
+    auto* dvar_menu = create_menu("Dvars");
+    auto* v2 = create_menu_entry(dvar_menu);
+    v2->set_game_flags_handler(populate_dvars);
+    arg0->add_entry(v2);
+}
 
 void debug_menu::init() {
     root_menu = create_menu("Debug Menu", handle_debug_entry, 10);
@@ -3252,6 +3320,7 @@ void debug_menu::init() {
     debug_menu_entry progression_entry{ progression_menu };
     debug_menu_entry level_select_entry{ level_select_menu };
 
+    create_dvars_menu(root_menu);
     create_camera_menu_items(root_menu);
     create_warp_menu(root_menu);
     add_debug_menu_entry(root_menu, &game_entry);
