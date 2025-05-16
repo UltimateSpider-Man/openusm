@@ -31,6 +31,89 @@ namespace ai {
 struct ai_core;
 }
 
+
+
+// @todo: complete flags
+enum EntityFlags : unsigned __int32
+{
+    FLAG_HAS_COLLISION                      = 0x2,
+    FLAG_MODEL_DEPENDENT_PO                 = 0x4,
+    FLAG_DISABLE_REGION_LINK                = 0x8,
+    FLAG_FADE_DISTANCE_MASK                 = 0xF,
+    FLAG_HAS_CHARACTER_COLLISION            = 0x10,
+    FLAG_HAS_TERRAIN_COLLISION              = 0x20,
+    FLAG_DIRTY                              = 0x40,
+    FLAG_CAN_WALK_ON                        = 0x80,
+    FLAG_RENDERABLE                         = 0x100,
+    FLAG_IS_VISIBLE                         = 0x200,
+    FLAG_HAS_BOX_TRIGGER                    = 0x400,
+    FLAG_SCALE_VISUAL_RADIUS                = 0x800,
+    FLAG_IS_ACTIVE                          = 0x2000,
+    FLAG_COLLISION_ACTIVE                   = 0x4000,
+    FLAG_CONGLOMERATE_MEMBER                = 0x8000,
+    FLAG_TRAFFIC_LIGHT_0                    = 0x20000,
+    FLAG_MISC_CAST_SHADOW                   = 0x40000,
+    FLAG_ACTIVE_DYNAMIC_ENTITY              = 0x80000,
+    FLAG_NO_COLLISION_GEOMETRY              = 0x200000,
+    FLAG_CAMERA_FROZEN                      = 0x400000,
+    FLAG_MISC_HIRES_SHADOW                  = 0x8000000,
+    FLAG_IN_REGION_SYSTEM                   = 0x10000000,
+    FLAG_HAS_COLLISION_GEO                  = 0x20000000,
+};
+enum EntityExtFlags : unsigned __int32
+{
+    EXTFLAG_NONE                            = 0x0,
+    EXTFLAG_VISUAL_RADIUS_REDUCED           = 0x20,
+    EXTFLAG_DIRTY                           = 0x40,
+    EXTFLAG_FORCE_UPDATE                    = 0x100,
+    EXTFLAG_UPDATE_VIA_REGIONLINK           = 0x2000,
+    EXTFLAG_PHYSICS_SUSPENDED               = 0x4000,
+    EXTFLAG_SCENE_OWNED                     = 0x8000,
+    EXTFLAG_SIGNALLER_ONLY                  = 0x20000,
+    EXTFLAG_NO_ZERO_VELOCITY                = 0x40000,
+    EXTFLAG_DYNAMIC_COLLISION_ACTOR         = 0x80000,
+    EXTFLAG_ALREADY_MOVED                   = 0x800000,
+    EXTFLAG_VISUAL_RADIUS_MINIMAL           = 0x1000000,
+    EXTFLAG_PHYSICS_MOVED                   = 0x2000000,
+    EXTFLAG_MODEL_REL_PO                    = 0x8000000,
+    EXTFLAG_DIRTY_ABS_PO                    = 0x10000000,
+    EXTFLAG_DOES_NOT_MANAGE_ABS_PO          = 0x40000000,
+    EXTFLAG_ACTOR_DELUXE                    = 0x80000000,
+
+};
+enum PhysicalFlags : unsigned __int32
+{
+    PHYSICAL_FLAG_NONE                      = 0x0,
+    PHYSICAL_FLAG_ENABLED                   = 0x1,
+    PHYSICAL_FLAG_HAS_GRAVITY               = 0x4,
+    PHYSICAL_FLAG_NO_BOUNCE                 = 0x80,
+    PHYSICAL_FLAG_TERRAIN_GROUNDED          = 0x200,
+    PHYSICAL_FLAG_FORCE_FLOOR_EVAL          = 0x400,
+    PHYSICAL_FLAG_KINEMATIC_OVERRIDE        = 0x800,
+    PHYSICAL_FLAG_MANAGE_STANDING           = 0x1000,
+    PHYSICAL_FLAG_IS_STANDING               = 0x8000,
+    PHYSICAL_FLAG_BIPED_PHYSICS             = 0x80000,
+    PHYSICAL_FLAG_SCENE_SYNC_A              = 0x10000000,
+    PHYSICAL_FLAG_SCENE_SYNC_B              = 0x20000000,
+    PHYSICAL_FLAG_NO_BOUNCE_RESPONSE        = 0x80000000,
+};
+
+enum CollisionGeomFlags : unsigned __int32
+{
+    COLGEOM_FLAG_NONE                       = 0x0,
+    COLGEOM_FLAG_BLOCKS_MOVEMENT            = 0x1,
+    COLGEOM_FLAG_BLOCKS_PROJECTILES         = 0x2,
+    COLGEOM_FLAG_UNKNOWN_4                  = 0x4,
+    COLGEOM_FLAG_UNKNOWN_8                  = 0x8,
+    COLGEOM_FLAG_HAS_CHARACTER_COLLISION    = 0x10,
+    COLGEOM_FLAG_UNKNOWN_20                 = 0x20,
+    COLGEOM_FLAG_UNKNOWN_40                 = 0x40,
+    COLGEOM_FLAG_UNKNOWN_80                 = 0x80,
+    COLGEOM_FLAG_VISIBLE_FOR_DEBUG_DRAW     = 0x100,
+    COLGEOM_FLAG_CUSTOM_MASK_200            = 0x200,
+    COLGEOM_FLAG_CUSTOM_MASK_400            = 0x400,
+    COLGEOM_SETUP_CAPSULE                   = 0x80000,
+};
 enum entity_flag_t {
     EFLAG_GRAPHICS_VISIBLE  = 0x200,
     EFLAG_MISC_CAST_SHADOW  = 0x40000,
