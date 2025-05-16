@@ -332,7 +332,8 @@ void ToggleFullScreen(bool isFullscreen)
 
 
 void init_hook(HWND hwnd) {
-    
+    os_developer_options::instance->set_flag(mString{ "NO_LOAD_SCREEN" }, g_config.NoLoadScreen);
+
     bool windowedMode = g_config.WindowedMode;
 
     g_Windowed() = windowedMode;
@@ -4671,6 +4672,9 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, [[maybe_unused]] LPVOID lpvReser
 
         if (strstr(args, " -windowed"))
             g_config.WindowedMode = true;
+        
+        if (strstr(args, " -noloadscreen"))
+            g_config.NoLoadScreen = true;
 
         bool res = install_hooks();
         if (res) 

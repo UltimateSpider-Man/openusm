@@ -10,6 +10,8 @@ struct GameConfig {
 	bool DebugMode = false;
 
 	bool WindowedMode = false;
+
+	bool NoLoadScreen = false;
 };
 
 extern GameConfig g_config;
