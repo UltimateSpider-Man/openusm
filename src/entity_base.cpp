@@ -1435,12 +1435,12 @@ void entity_base::dirty_family(bool a2)
 {
     if constexpr (1)
     {
-        this->set_ext_flag_recursive_internal(static_cast<entity_ext_flag_t>(0x10000000u), true);
-        this->set_ext_flag_recursive_internal(static_cast<entity_ext_flag_t>(0x40u), true);
+        this->set_ext_flag_recursive_internal(static_cast<entity_ext_flag_t>(EXTFLAG_DIRTY_ABS_PO), true);
+        this->set_ext_flag_recursive_internal(static_cast<entity_ext_flag_t>(EXTFLAG_DIRTY), true);
 
         for (auto *v2 = this->get_first_child(); v2 != nullptr; v2 = v2->field_28)
         {
-            if (!v2->is_ext_flagged(0x10000000) || a2) {
+            if (!v2->is_ext_flagged(EXTFLAG_DIRTY_ABS_PO) || a2) {
                 v2->dirty_family(a2);
             }
         }
@@ -1451,11 +1451,11 @@ void entity_base::dirty_family(bool a2)
 
 void entity_base::enter_limbo()
 {
-    if ( !this->is_ext_flagged(0x2000u) && this->is_ext_flagged(0x200u) )
+    if ( !this->is_ext_flagged(EXTFLAG_UPDATE_VIA_REGIONLINK) && this->is_ext_flagged(0x200u) )
     {
         vhandle_type<entity> v3 {this->get_my_handle()};
         add_to_limbo_list(v3);
-        this->set_ext_flag_recursive_internal(static_cast<entity_ext_flag_t>(0x2000u), true);
+        this->set_ext_flag_recursive_internal(static_cast<entity_ext_flag_t>(EXTFLAG_UPDATE_VIA_REGIONLINK), true);
         this->raise_event(event::ENTER_LIMBO);
     }
 }
@@ -1463,11 +1463,11 @@ void entity_base::enter_limbo()
 void entity_base::exit_limbo()
 {
     if constexpr (0) {
-        if ( this->is_ext_flagged(0x2000u) && this->is_ext_flagged(0x200u) )
+        if ( this->is_ext_flagged(EXTFLAG_UPDATE_VIA_REGIONLINK) && this->is_ext_flagged(0x200u) )
         {
             vhandle_type<entity> v3 {this->get_my_handle()};
             remove_from_limbo_list(v3);
-            this->set_ext_flag_recursive_internal(static_cast<entity_ext_flag_t>(0x2000u), false);
+            this->set_ext_flag_recursive_internal(static_cast<entity_ext_flag_t>(EXTFLAG_UPDATE_VIA_REGIONLINK), false);
             this->raise_event(event::EXIT_LIMBO);
         }
     } else {
@@ -1484,7 +1484,7 @@ void entity_base::on_fade_distance_changed_internal(int a2) {
 }
 
 bool entity_base::is_visible() const {
-    auto result = this->is_flagged(0x200);
+    auto result = this->is_flagged(FLAG_IS_VISIBLE);
     return result;
 }
 
@@ -1509,11 +1509,11 @@ bool entity_base::is_flagged(uint32_t a2) const
 
 bool entity_base::is_walkable() const
 {
-    return this->is_flagged(0x80);
+    return this->is_flagged(FLAG_CAN_WALK_ON);
 }
 
 bool entity_base::are_collisions_active() const {
-    return this->is_flagged(0x4000);
+    return this->is_flagged(FLAG_COLLISION_ACTIVE);
 }
 
 void entity_base::dirty_model_po_family()

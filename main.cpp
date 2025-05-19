@@ -3353,6 +3353,12 @@ void create_entity_variants_menu(debug_menu* parent) {
     entry->set_game_flags_handler(populate_entity_variants_menu);
     parent->add_entry(entry);
 }
+
+
+// Dvars
+// ----------------------------------------------------------------------------------
+#pragma region "Dvars"
+
 static const float flt_881AC0 = 0.5;
 static const float flt_882098 = 2.5;
 static const float flt_87EA34 = 0.75;
@@ -3416,11 +3422,15 @@ void populate_dvars(debug_menu_entry* entry)
 
 void create_dvars_menu(debug_menu* arg0)
 {
-    auto* dvar_menu = create_menu("Dvars");
-    auto* v2 = create_menu_entry(dvar_menu);
+    dvars_menu = create_menu("Dvars");
+    auto* v2 = create_menu_entry(dvars_menu);
     v2->set_game_flags_handler(populate_dvars);
     arg0->add_entry(v2);
 }
+#pragma endregion
+
+// Debug Menu
+// ----------------------------------------------------------------------------------
 
 void debug_menu::init() {
     root_menu = create_menu("Debug Menu", handle_debug_entry, 10);
@@ -3435,26 +3445,25 @@ void debug_menu::init() {
     debug_menu_entry script_entry{ script_menu };
     debug_menu_entry progression_entry{ progression_menu };
     debug_menu_entry level_select_entry{ level_select_menu };
-
-    create_dvars_menu(root_menu);
+    
+    create_entity_animation_menu(root_menu);
     create_camera_menu_items(root_menu);
+    create_dvars_menu(root_menu);
     create_warp_menu(root_menu);
     add_debug_menu_entry(root_menu, &game_entry);
     add_debug_menu_entry(root_menu, &missions_entry);
-
     create_debug_district_variants_menu(root_menu);
-
     add_debug_menu_entry(root_menu, &script_entry);
     add_debug_menu_entry(root_menu, &progression_entry);
     add_debug_menu_entry(root_menu, &level_select_entry);
-
     create_debug_render_menu(root_menu);
-
     create_ai_root_menu(root_menu);
     create_memory_menu(root_menu);
-    create_entity_animation_menu(root_menu);
+
+
     create_replay_menu(root_menu);
     create_entity_variants_menu(root_menu);
+
 
     /*
     for (int i = 0; i < 5; i++) {
@@ -3567,6 +3576,9 @@ void close_debug() {
     g_game_ptr->unpause();
 }
 
+
+// Missions
+// ----------------------------------------------------------------------------------
 
 struct mission_t
 {
@@ -4365,7 +4377,7 @@ BOOL install_redirects()
         HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
         REDIRECT(0x005E10EE, init_shadow_targets2);
 
-        auto writeDWORD = [](int address, DWORD newValue, const char* reason) -> void {
+        auto writeDWORD = [](int address, DWORD newValue, [[maybe_unused]] const char* reason) -> void {
             *((DWORD*)address) = newValue;
         };
         writeDWORD(0x0089C710, (DWORD)slf__create_progression_menu_entry, "Hooking first ocurrence of create_progession_menu_entry");

@@ -5,7 +5,15 @@
 #include "string_hash.h"
 
 struct conglomerate;
-struct variant_info;
+struct variant_info
+{
+    string_hash hash;
+    unsigned __int16 field_4;
+    unsigned __int16 field_6;
+    unsigned __int8* parts;
+    char* ifl_frames;
+};
+
 struct nglMeshFile;
 struct nglMesh;
 struct nglMorphSet;
