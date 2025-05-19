@@ -2756,6 +2756,7 @@ debug_menu* script_menu = nullptr;
 debug_menu* progression_menu = nullptr;
 debug_menu* level_select_menu = nullptr;
 debug_menu* dvars_menu  = nullptr;
+debug_menu* replay_menu  = nullptr;
 debug_menu* entity_variants_menu  = nullptr;
 
 debug_menu** all_menus[] = {
@@ -2766,6 +2767,7 @@ debug_menu** all_menus[] = {
     &progression_menu,
     &level_select_menu,
     &dvars_menu,
+    &replay_menu,
     &entity_variants_menu
 };
 
@@ -3237,6 +3239,61 @@ void create_entity_animation_menu(debug_menu* parent)
     parent->add_entry(&v5);
 }
 
+#include "rtdt_replay_mgr.h"
+
+
+bool sub_6694CA(rtdt_replay_mgr* instance)
+{
+    g_game_ptr->enable_physics(false);
+    return true;
+}
+
+void sub_66ADD4(rtdt_replay_mgr* instance, int flag)
+{
+}
+
+void replay_handler(debug_menu_entry* entry)
+{
+
+    if (entry->get_id() == 0) {
+        auto instance = rtdt_replay_mgr::m_instance;
+
+        if (sub_6694CA(instance)) {
+            auto replay_instance = rtdt_replay_mgr::m_instance;
+
+            sub_66ADD4(replay_instance, 1);
+
+            g_game_ptr->enable_physics(true);
+            debug_menu::physics_state_on_exit = true;
+        }
+
+        debug_menu::hide();
+    }
+}
+
+
+void populate_replay_menu(debug_menu_entry* entry)
+{
+
+    auto* head_menu = create_menu("Replay", debug_menu::sort_mode_t::ascending);
+    entry->set_submenu(head_menu);
+
+    mString v25{ "Start" };
+    debug_menu_entry v38{ v25.c_str() };
+
+    v38.set_game_flags_handler(replay_handler);
+
+    head_menu->add_entry(&v38);
+}
+
+void create_replay_menu(debug_menu* parent)
+{
+    replay_menu = create_menu("Replay");
+    auto* v2 = create_menu_entry(replay_menu);
+    v2->set_game_flags_handler(populate_replay_menu);
+    parent->add_entry(v2);
+}
+
 
 // Entity Variants
 // ----------------------------------------------------------------------------------
@@ -3396,6 +3453,7 @@ void debug_menu::init() {
     create_ai_root_menu(root_menu);
     create_memory_menu(root_menu);
     create_entity_animation_menu(root_menu);
+    create_replay_menu(root_menu);
     create_entity_variants_menu(root_menu);
 
     /*
