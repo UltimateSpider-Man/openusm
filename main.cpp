@@ -2756,6 +2756,7 @@ debug_menu* script_menu = nullptr;
 debug_menu* progression_menu = nullptr;
 debug_menu* level_select_menu = nullptr;
 debug_menu* dvars_menu  = nullptr;
+debug_menu* entity_variants_menu  = nullptr;
 
 debug_menu** all_menus[] = {
     &debug_menu::root_menu,
@@ -2765,6 +2766,7 @@ debug_menu** all_menus[] = {
     &progression_menu,
     &level_select_menu,
     &dvars_menu,
+    &entity_variants_menu
 };
 
 void remove_debug_menu_entry(debug_menu_entry* entry) {
@@ -3234,6 +3236,66 @@ void create_entity_animation_menu(debug_menu* parent)
     v5.set_game_flags_handler(populate_entity_animation_menu);
     parent->add_entry(&v5);
 }
+
+
+// Entity Variants
+// ----------------------------------------------------------------------------------
+#include "entity_base.h"
+#include "list.hpp"
+#include "entity.h"
+#include "variant_interface.h"
+
+void apply_variant_handler(debug_menu_entry* entry)
+{
+    if (auto c = static_cast<conglomerate*>(entry->m_data)) {
+        if (auto ifc = c->m_variant_interface) {
+            string_hash hash{ entry->text };
+            ifc->apply_variant(hash);
+        }
+    }
+}
+void populate_variants_menu(debug_menu_entry* entry)
+{
+    auto* menu = create_menu(entry->text, debug_menu::sort_mode_t::ascending);
+    entry->set_submenu(menu);
+
+    auto c = static_cast<conglomerate*>(entry->m_data);
+    auto vi = c->m_variant_interface;
+    for (int i = 0; i < vi->variants.size(); ++i) {
+        string_hash sss(vi->variants.m_data[i].hash);
+        auto variant_name = sss.to_string();
+
+        auto variant_menu = create_menu_entry(variant_name);
+        variant_menu->set_game_flags_handler(apply_variant_handler);
+        variant_menu->set_data(entry->m_data);
+        menu->add_entry(variant_menu);
+    }
+}
+
+void populate_entity_variants_menu(debug_menu_entry* entry) {
+    auto* submenu = create_menu("Entity Variants", debug_menu::sort_mode_t::ascending);
+    entry->set_submenu(submenu);
+
+    entity::find_entities(256);
+
+    _std::list<entity*> entities = *entity::found_entities;
+    for (auto& entity : entities) {
+        auto entityName = entity->get_id().to_string();
+        auto entityEntry = create_menu_entry(entityName);
+        entityEntry->set_game_flags_handler(populate_variants_menu);
+        entityEntry->set_data(entity);
+        entityEntry->set_submenu(nullptr);
+        submenu->add_entry(entityEntry);
+    }
+}
+
+void create_entity_variants_menu(debug_menu* parent) {
+    auto menu = create_menu("Entity Variants");
+    auto entry = create_menu_entry(menu);
+    entry->set_submenu(nullptr);
+    entry->set_game_flags_handler(populate_entity_variants_menu);
+    parent->add_entry(entry);
+}
 static const float flt_881AC0 = 0.5;
 static const float flt_882098 = 2.5;
 static const float flt_87EA34 = 0.75;
@@ -3334,6 +3396,7 @@ void debug_menu::init() {
     create_ai_root_menu(root_menu);
     create_memory_menu(root_menu);
     create_entity_animation_menu(root_menu);
+    create_entity_variants_menu(root_menu);
 
     /*
     for (int i = 0; i < 5; i++) {
