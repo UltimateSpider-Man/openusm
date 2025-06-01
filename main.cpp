@@ -3739,6 +3739,244 @@ const char* hero_list[NUM_HEROES] = {
         "venom_spider"
 };
 
+// app_rebooter.hpp
+#pragma once
+#include <algorithm>
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#if defined(_WIN32)
+#define NOMINMAX
+#include <shellapi.h>
+#include <windows.h>
+#else // POSIX (including WSL)
+#include <limits.h>
+#include <unistd.h>
+#endif
+
+
+
+// Global constants
+constexpr const char* kIniPath = "data/game.ini"; // default INI location
+constexpr const char* kLevelList[2] = { "city_arena", "characterb_arena" };
+
+// INI helpers – cross-platform read / write of single values
+inline std::string ReadINI(const char* section,
+    const char* key,
+    const char* defaultValue = "")
+{
+#if defined(_WIN32)
+    char buf[256] {}; // zero-initialise
+    GetPrivateProfileStringA(section,
+        key,
+        defaultValue,
+        buf,
+        static_cast<DWORD>(sizeof(buf)),
+        kIniPath);
+    return buf;
+#else // POSIX (including WSL)
+    std::ifstream file(kIniPath);
+    if (!file)
+        return defaultValue;
+
+    std::string line, currentSection;
+    auto trim = [](std::string& s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c) { return !std::isspace(c); }));
+        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) { return !std::isspace(c); }).base(), s.end());
+    };
+    std::string targetSec(section), targetKey(key);
+    std::transform(targetSec.begin(), targetSec.end(), targetSec.begin(), ::toupper);
+    std::transform(targetKey.begin(), targetKey.end(), targetKey.begin(), ::toupper);
+
+    while (std::getline(file, line)) {
+        trim(line);
+        if (line.empty() || line[0] == ';')
+            continue;
+        if (line.front() == '[' && line.back() == ']') {
+            currentSection = line.substr(1, line.size() - 2);
+            std::transform(currentSection.begin(), currentSection.end(), currentSection.begin(), ::toupper);
+            continue;
+        }
+        if (currentSection != targetSec)
+            continue;
+        auto pos = line.find('=');
+        if (pos == std::string::npos)
+            continue;
+        std::string k = line.substr(0, pos);
+        trim(k);
+        std::transform(k.begin(), k.end(), k.begin(), ::toupper);
+        if (k != targetKey)
+            continue;
+        std::string value = line.substr(pos + 1);
+        trim(value);
+        return value;
+    }
+    return defaultValue;
+#endif
+}
+
+inline void WriteINI(const char* section,
+    const char* key,
+    const char* value)
+{
+#if defined(_WIN32)
+    if (!WritePrivateProfileStringA(section, key, value, kIniPath))
+        throw std::runtime_error("WritePrivateProfileString failed");
+#else // POSIX (including WSL)
+    // Very small, naïve re-write: load file into memory, modify or append key.
+    std::ifstream in(kIniPath);
+    std::vector<std::string> lines;
+    std::string currentSection, targetSec(section);
+    std::transform(targetSec.begin(), targetSec.end(), targetSec.begin(), ::toupper);
+
+    bool keyWritten = false;
+    if (in) {
+        std::string l;
+        while (std::getline(in, l))
+            lines.push_back(l);
+    }
+
+    auto trim = [](std::string& s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c) { return !std::isspace(c); }));
+        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) { return !std::isspace(c); }).base(), s.end());
+    };
+
+    for (auto& l : lines) {
+        std::string line = l;
+        trim(line);
+        if (line.empty() || line[0] == ';')
+            continue;
+        if (line.front() == '[' && line.back() == ']') {
+            currentSection = line.substr(1, line.size() - 2);
+            std::transform(currentSection.begin(), currentSection.end(), currentSection.begin(), ::toupper);
+            continue;
+        }
+        if (currentSection != targetSec)
+            continue;
+        auto pos = line.find('=');
+        if (pos == std::string::npos)
+            continue;
+        std::string k = line.substr(0, pos);
+        trim(k);
+        std::transform(k.begin(), k.end(), k.begin(), ::toupper);
+        if (k == key) {
+            l = std::string(key) + "=" + value;
+            keyWritten = true;
+            break;
+        }
+    }
+
+    if (!keyWritten) {
+        // append [section] + key if missing
+        bool sectionExists = false;
+        for (auto& l : lines) {
+            std::string chk = l;
+            trim(chk);
+            if (chk.front() == '[' && chk.back() == ']') {
+                std::string s = chk.substr(1, chk.size() - 2);
+                std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+                if (s == targetSec) {
+                    sectionExists = true;
+                    break;
+                }
+            }
+        }
+        if (!sectionExists) {
+            lines.push_back("[" + std::string(section) + "]");
+        }
+        lines.push_back(std::string(key) + "=" + value);
+    }
+
+    std::ofstream out(kIniPath, std::ios::trunc);
+    for (auto& l : lines)
+        out << l << "\n";
+#endif
+}
+
+// Convenience: switch active scene by overwriting the value in [Strings]
+inline void SelectScene(const std::string& sceneName)
+{
+    WriteINI("Strings", "SCENE_NAME", sceneName.c_str());
+}
+
+// Process-restart helpers
+
+    inline std::string currentExecutablePath()
+    {
+#if defined(_WIN32)
+        char buf[MAX_PATH];
+        DWORD len = GetModuleFileNameA(nullptr, buf, MAX_PATH);
+        if (len == 0 || len == MAX_PATH)
+            throw std::runtime_error("GetModuleFileName failed");
+        return std::string(buf, len);
+#else // POSIX (including WSL)
+        char buf[PATH_MAX];
+        ssize_t len = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (len == -1)
+            throw std::runtime_error("readlink(/proc/self/exe) failed");
+        buf[len] = '\0';
+        return std::string(buf, len);
+#endif
+    }
+
+    inline void launch(const std::string& exePath,
+        const std::string& args = {})
+    {
+#if defined(_WIN32)
+        std::string cmd = "\"" + exePath + "\" " + args;
+        STARTUPINFOA si { sizeof(si) };
+        PROCESS_INFORMATION pi {};
+        if (!CreateProcessA(nullptr, cmd.data(), nullptr, nullptr, FALSE,
+                0, nullptr, nullptr, &si, &pi))
+            throw std::runtime_error("CreateProcess failed");
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+#else // POSIX (including WSL)
+        if (args.empty())
+            execl(exePath.c_str(), exePath.c_str(), static_cast<char*>(nullptr));
+        else {
+            std::string cmd = exePath + " " + args;
+            execl("/bin/sh", "sh", "-c", cmd.c_str(), static_cast<char*>(nullptr));
+        }
+        throw std::runtime_error("execl failed");
+#endif
+    }
+ // namespace detail
+
+[[noreturn]] inline void restart(const std::string& extraArgs = {})
+{
+    launch(currentExecutablePath(), extraArgs);
+    std::exit(EXIT_SUCCESS);
+}
+
+[[noreturn]] inline void restartWith(const std::string& exePath,
+    const std::string& args = {})
+{
+    launch(exePath, args);
+    std::exit(EXIT_SUCCESS);
+}
+
+// namespace AppRebooter
+
+        void load_level()
+    {
+
+        SelectScene("city_arena");
+        restart();
+
+    }
+
+            void swap_level()
+    {
+
+        SelectScene("characterb_arena"); // or "city_arena"
+        restart();
+    }
+
 enum class hero_status_e {
     UNDEFINED = 0,
     REMOVE_PLAYER = 1,
@@ -3827,54 +4065,39 @@ void hero_entry_callback(debug_menu_entry*);
 
 void hero_toggle_handler(debug_menu_entry* entry);
 
-void create_level_select_menu(debug_menu* level_select_menu)
+void city_handler(debug_menu_entry *)
 {
-    //assert(debug_menu::root_menu != nullptr);
+		load_level();
+}
 
-    int arg0;
-    auto* level_descriptors = get_level_descriptors(&arg0);
-    printf("num_descriptors = %d\n", arg0);
-    for (auto i = 0; i < arg0; ++i)
-    {
-        auto v6 = 25;
-        auto* v1 = level_descriptors[i].field_0.to_string();
-        string_hash v5{ v1 };
-        auto v11 = resource_key{ v5, resource_key_type(v6) };
-        auto v17 = resource_manager::get_pack_file_stats(v11, nullptr, nullptr, nullptr);
-        if (v17)
-        {
-            mString v22{ level_descriptors[i].field_60.to_string() };
-            debug_menu_entry v39{ v22.c_str() };
+void characterb_handler(debug_menu_entry *)
+{
+	swap_level();
+}
 
-            v39.set_game_flags_handler(level_select_handler);
-            v39.m_id = i;
-            level_select_menu->add_entry(&v39);
-        }
-    }
+inline void create_level_select_menu(debug_menu* level_select_menu)
+{
+    // assert(debug_menu::root_menu != nullptr);
 
-    mString v25{ "-- REBOOT --" };
-    debug_menu_entry v38{ v25.c_str() };
 
-    v38.set_game_flags_handler(reboot_handler);
 
-    level_select_menu->add_entry(&v38);
 
     static debug_menu* hero_select_menu = create_menu("Hero Select");
 
-    debug_menu_entry v28{ hero_select_menu };
+    debug_menu_entry v28 { hero_select_menu };
+
 
     level_select_menu->add_entry(&v28);
-    for (auto i = 0u; i < NUM_HEROES; ++i)
-    {
-        auto v6 = 25;
-        string_hash v5{ hero_list[i] };
-        auto v11 = resource_key{ v5, (resource_key_type)v6 };
-        auto v30 = resource_manager::get_pack_file_stats(v11, nullptr, nullptr, nullptr);
-        if (v30)
-        {
-            mString v35{ hero_list[i] };
+    for (auto i = 0u; i < NUM_HEROES; ++i) {
+        string_hash v5 { hero_list[i] };
+        const auto v19 = mString { hero_list[i] };
+        auto* v12 = v19.c_str();
+        auto key = create_resource_key_from_path(v12, RESOURCE_KEY_TYPE_PACK);
 
-            debug_menu_entry v37{ v35.c_str() };
+        auto v30 = resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr);
+        if (v30) {
+
+            debug_menu_entry v37 { v19.c_str() };
 
             v37.set_game_flags_handler(hero_toggle_handler);
             v37.m_id = i;
@@ -3882,7 +4105,30 @@ void create_level_select_menu(debug_menu* level_select_menu)
             hero_select_menu->add_entry(&v37);
         }
     }
-}
+
+
+            mString v23 { "city" };
+    debug_menu_entry v40 { v23.c_str() };
+
+    v40.set_game_flags_handler(city_handler);
+
+        level_select_menu->add_entry(&v40);
+
+        mString v24 { "characterb" };
+    debug_menu_entry v41 { v24.c_str() };
+
+    v41.set_game_flags_handler(characterb_handler);
+
+    level_select_menu->add_entry(&v41);
+
+    mString v25 { "-- REBOOT --" };
+    debug_menu_entry v38 { v25.c_str() };
+
+    v38.set_game_flags_handler(reboot_handler);
+
+    level_select_menu->add_entry(&v38);
+    }
+
 
 void hero_toggle_handler(debug_menu_entry* entry)
 {
