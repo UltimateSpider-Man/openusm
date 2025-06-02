@@ -2278,6 +2278,7 @@ void GetDeviceStateHandleKeyboardInput(LPVOID lpvData) {
 }
 
 int debug_enabled = 0;
+int debug_disabled = 0;
 
 
 int get_menu_key_value(MenuKey key, int keyboard) {
@@ -2323,6 +2324,39 @@ int is_menu_key_pressed(MenuKey key, int keyboard) {
 
 int is_menu_key_clicked(MenuKey key, int keyboard) {
     return get_menu_key_value(key, keyboard);
+}
+
+void read_and_update_controller_key_button(LPDIJOYSTATE2 joy, int index, MenuKey key) {
+	int res = 0;
+	if (joy->rgbButtons[index]) {
+		++controllerKeys[key];
+	}
+	else {
+		controllerKeys[key] = 0;
+	}
+}
+
+
+void read_and_update_controller_key_dpad(LPDIJOYSTATE2 joy, int angle, MenuKey key) {
+	
+	if (joy->rgdwPOV[0] == 0xFFFFFFFF)
+		controllerKeys[key] = 0;
+	else
+		controllerKeys[key] = (joy->rgdwPOV[0] == angle) ? controllerKeys[key] + 1 : 0;
+}
+
+
+void GetDeviceStateHandleControllerInput(LPVOID lpvData) {
+	LPDIJOYSTATE2 joy = (decltype(joy)) lpvData;
+
+	read_and_update_controller_key_button(joy, 1, MENU_ACCEPT);
+	read_and_update_controller_key_button(joy, 2, MENU_BACK);
+        read_and_update_controller_key_button(joy, 11, MENU_TOGGLE);
+
+	read_and_update_controller_key_dpad(joy, 0, MENU_UP);
+	read_and_update_controller_key_dpad(joy, 9000, MENU_RIGHT);
+	read_and_update_controller_key_dpad(joy, 18000, MENU_DOWN);
+	read_and_update_controller_key_dpad(joy, 27000, MENU_LEFT);
 }
 
 DWORD modulo(int num, DWORD mod) {
@@ -2423,7 +2457,7 @@ void menu_input_handler(int keyboard, int SCROLL_SPEED) {
     }
 
     debug_menu_entry* highlighted = &current_menu->entries[current_menu->window_start + current_menu->cur_index];
-    assert(highlighted->frame_advance_callback != nullptr);
+  //  assert(highlighted->frame_advance_callback != nullptr);
     highlighted->frame_advance_callback(highlighted);
 }
 
@@ -2438,10 +2472,20 @@ HRESULT __stdcall GetDeviceStateHook(IDirectInputDevice8* self, DWORD cbData, LP
 	printf("cbData %d %d %d\n", cbData, sizeof(DIJOYSTATE), sizeof(DIJOYSTATE2));
 
 	//keyboard time babyyy
-    if (cbData == 256)
-    {
-        GetDeviceStateHandleKeyboardInput(lpvData);
-    }
+	//keyboard time babyyy
+	if (cbData == 256 || cbData == sizeof(DIJOYSTATE2)) {
+
+		
+		if (cbData == 256)
+			GetDeviceStateHandleKeyboardInput(lpvData);
+		else if (cbData == sizeof(DIJOYSTATE2))
+			GetDeviceStateHandleControllerInput(lpvData);
+
+		int game_states = 0;
+		if (g_game_ptr)
+        {
+			//game_states = game_get_cur_state(g_game_ptr);
+        }
      
     auto g_state = []() -> game_state {
         if (g_game_ptr != nullptr)
@@ -2595,7 +2639,7 @@ HRESULT __stdcall GetDeviceStateHook(IDirectInputDevice8* self, DWORD cbData, LP
 	}
 
 	//printf("Device State called %08X %d\n", this, cbData);
-
+}
 	return res;
 }
 
@@ -2751,24 +2795,17 @@ typedef struct _list {
 
 #include "levelmenu.h"
 debug_menu* game_menu = nullptr;
-debug_menu* missions_menu = nullptr;
 debug_menu* script_menu = nullptr;
 debug_menu* progression_menu = nullptr;
-debug_menu* level_select_menu = nullptr;
-debug_menu* dvars_menu  = nullptr;
-debug_menu* replay_menu  = nullptr;
-debug_menu* entity_variants_menu  = nullptr;
+
+
 
 debug_menu** all_menus[] = {
     &debug_menu::root_menu,
     &game_menu,
-    &missions_menu,
     &script_menu,
     &progression_menu,
-    &level_select_menu,
-    &dvars_menu,
-    &replay_menu,
-    &entity_variants_menu
+
 };
 
 void remove_debug_menu_entry(debug_menu_entry* entry) {
@@ -3275,7 +3312,7 @@ void replay_handler(debug_menu_entry* entry)
 void populate_replay_menu(debug_menu_entry* entry)
 {
 
-    auto* head_menu = create_menu("Replay", debug_menu::sort_mode_t::ascending);
+    auto head_menu = create_menu("Replay", debug_menu::sort_mode_t::ascending);
     entry->set_submenu(head_menu);
 
     mString v25{ "Start" };
@@ -3288,7 +3325,7 @@ void populate_replay_menu(debug_menu_entry* entry)
 
 void create_replay_menu(debug_menu* parent)
 {
-    replay_menu = create_menu("Replay");
+    auto* replay_menu = create_menu("Replay");
     auto* v2 = create_menu_entry(replay_menu);
     v2->set_game_flags_handler(populate_replay_menu);
     parent->add_entry(v2);
@@ -3347,8 +3384,8 @@ void populate_entity_variants_menu(debug_menu_entry* entry) {
 }
 
 void create_entity_variants_menu(debug_menu* parent) {
-    auto menu = create_menu("Entity Variants");
-    auto entry = create_menu_entry(menu);
+    auto* entity_variants_menu = create_menu("Entity Variants");
+    auto* entry = create_menu_entry(entity_variants_menu);
     entry->set_submenu(nullptr);
     entry->set_game_flags_handler(populate_entity_variants_menu);
     parent->add_entry(entry);
@@ -3422,322 +3459,418 @@ void populate_dvars(debug_menu_entry* entry)
 
 void create_dvars_menu(debug_menu* arg0)
 {
-    dvars_menu = create_menu("Dvars");
+    auto* dvars_menu = create_menu("Dvars");
     auto* v2 = create_menu_entry(dvars_menu);
     v2->set_game_flags_handler(populate_dvars);
     arg0->add_entry(v2);
 }
-#pragma endregion
-
-// Debug Menu
-// ----------------------------------------------------------------------------------
-
-void debug_menu::init() {
-    root_menu = create_menu("Debug Menu", handle_debug_entry, 10);
-    game_menu = create_menu("Game", handle_game_entry, 300);
-    missions_menu = create_menu("Missions");
-    script_menu = create_menu("Script");
-    progression_menu = create_menu("Progression");
-    level_select_menu = create_menu("Level Select");
-
-    debug_menu_entry game_entry{ game_menu };
-    debug_menu_entry missions_entry{ missions_menu };
-    debug_menu_entry script_entry{ script_menu };
-    debug_menu_entry progression_entry{ progression_menu };
-    debug_menu_entry level_select_entry{ level_select_menu };
-    
-    create_entity_animation_menu(root_menu);
-    create_camera_menu_items(root_menu);
-    create_dvars_menu(root_menu);
-    create_warp_menu(root_menu);
-    add_debug_menu_entry(root_menu, &game_entry);
-    add_debug_menu_entry(root_menu, &missions_entry);
-    create_debug_district_variants_menu(root_menu);
-    add_debug_menu_entry(root_menu, &script_entry);
-    add_debug_menu_entry(root_menu, &progression_entry);
-    add_debug_menu_entry(root_menu, &level_select_entry);
-    create_debug_render_menu(root_menu);
-    create_ai_root_menu(root_menu);
-    create_memory_menu(root_menu);
-
-
-    create_replay_menu(root_menu);
-    create_entity_variants_menu(root_menu);
-
-
-    /*
-    for (int i = 0; i < 5; i++) {
-
-        debug_menu_entry asdf;
-        sprintf(asdf.text, "entry %d", i);
-        printf("AQUI %s\n", asdf.text);
-
-        add_debug_menu_entry(debug_menu::root_menu, &asdf);
-    }
-    add_debug_menu_entry(debug_menu::root_menu, &teste);
-    */
-}
-#ifdef _WIN32
-#define _USE_MATH_DEFINES
-#define NOMINMAX
-#endif
-
-void render_current_debug_menu() {
-    auto UP_ARROW{ " ^ ^ ^ " };
-    auto DOWN_ARROW{ " v v v " };
-
-    int num_elements = std::min((DWORD)MAX_ELEMENTS_PAGE, current_menu->used_slots - current_menu->window_start);
-    int needs_down_arrow = ((current_menu->window_start + MAX_ELEMENTS_PAGE) < current_menu->used_slots) ? 1 : 0;
-
-    int cur_width, cur_height;
-    int debug_width = 0;
-    int debug_height = 0;
-
-    auto get_and_update = [&](auto* x) {\
-        getStringDimensions(x, &cur_width, &cur_height); \
-        debug_height += cur_height; \
-        debug_width = std::max(debug_width, cur_width); \
-        };
-
-    //printf("new size: %s %d %d (%d %d)\n", x, debug_width, debug_height, cur_width, cur_height);
-
-    get_and_update(current_menu->title);
-    get_and_update(UP_ARROW);
-
-    int total_elements_page = needs_down_arrow ? MAX_ELEMENTS_PAGE : current_menu->used_slots - current_menu->window_start;
-
-    for (int i = 0; i < total_elements_page; ++i) {
-        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
-        auto cur = getRealText(entry);
-        get_and_update(cur.c_str());
-    }
-
-    if (needs_down_arrow) {
-        get_and_update(DOWN_ARROW);
-    }
-
-    nglQuad quad;
-
-    int menu_x_start = 20, menu_y_start = 40;
-    int menu_x_pad = 24, menu_y_pad = 18;
-
-    nglInitQuad(&quad);
-    nglSetQuadRect(&quad, menu_x_start, menu_y_start, menu_x_start + debug_width + menu_x_pad, menu_y_start + debug_height + menu_y_pad);
-    nglSetQuadColor(&quad, 0xBE0A0A0A);
-    nglSetQuadZ(&quad, 0.5f);
-    nglListAddQuad(&quad);
-    
-    int white_color = nglColor(255, 255, 255, 255);
-    int yellow_color = nglColor(255, 255, 0, 255);
-    int green_color = nglColor(0, 255, 0, 255);
-    int pink_color = nglColor(255, 0, 255, 255);
-
-    int render_height = menu_y_start;
-    render_height += 12;
-    int render_x = menu_x_start;
-    render_x += 8;
-    
-    nglListAddString(nglSysFont(), render_x, render_height, 0.2f, green_color, 1.f, 1.f, current_menu->title);
-    render_height += getStringHeight(current_menu->title);
-
-    if (current_menu->window_start) {
-        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, UP_ARROW);
-    }
-
-    render_height += getStringHeight(UP_ARROW);
-
-    for (int i = 0; i < total_elements_page; i++) {
-
-        int current_color = current_menu->cur_index == i ? yellow_color : white_color;
-
-        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
-        auto cur = getRealText(entry);
-        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, current_color, 1.f, 1.f, cur.c_str());
-        render_height += getStringHeight(cur.c_str());
-    }
-
-    if (needs_down_arrow) {
-        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, DOWN_ARROW);
-        render_height += getStringHeight(DOWN_ARROW);
-    }
-}
-
-void debug_nglListEndScene_hook() {
-    g_console->render();
-
-    if (debug_enabled) 
-        render_current_debug_menu();
-
-    nglListEndScene();
-}
-
-void close_debug() {
-    debug_enabled = 0;
-    g_game_ptr->unpause();
-}
-
 
 // Missions
 // ----------------------------------------------------------------------------------
-
-struct mission_t
-{
+struct mission_t {
     std::string field_0;
-    const char* field_C;
-    int field_10;
+    const char *field_C;
+    int m_district_id;
     int field_14;
 };
 
 std::vector<mission_t> menu_missions;
 
-void mission_unload_handler(debug_menu_entry* a1)
+void mission_unload_handler(debug_menu_entry *)
 {
-    auto* v1 = mission_manager::s_inst;
+    auto *v1 = mission_manager::s_inst;
     v1->prepare_unload_script();
-
-    close_debug();
+    debug_menu::hide();
 }
 
-void mission_select_handler(debug_menu_entry* entry)
+void mission_select_handler(debug_menu_entry *entry)
 {
-    auto v1 = (int)entry->data1;
-    auto v7 = &menu_missions.at(v1);
-    auto v6 = v7->field_C;
-    auto v5 = v7->field_14;
-    auto* v4 = v7->field_0.c_str();
-    auto v3 = v7->field_10;
-    auto* v2 = mission_manager::s_inst;
+    auto v1 = entry->m_id;
+    const auto &v7 = menu_missions[v1];
+    auto v6 = v7.field_C;
+    auto v5 = v7.field_14;
+    auto *v4 = v7.field_0.c_str();
+    auto v3 = v7.m_district_id;
+    auto *v2 = mission_manager::s_inst;
     v2->force_mission(v3, v4, v5, v6);
-    close_debug();
+    debug_menu::hide();
 }
+
 typedef int (*resource_manager_can_reload_amalgapak_ptr)(void);
 resource_manager_can_reload_amalgapak_ptr resource_manager_can_reload_amalgapak = (resource_manager_can_reload_amalgapak_ptr)0x0053DE90;
 
 typedef void (*resource_manager_reload_amalgapak_ptr)(void);
 resource_manager_reload_amalgapak_ptr resource_manager_reload_amalgapak = (resource_manager_reload_amalgapak_ptr)0x0054C2E0;
 
-void create_game_flags_menu(debug_menu* parent);
-
-void populate_missions_menu(debug_menu* missions_menu)
+void populate_missions_menu(debug_menu_entry *entry)
 {
-    if (missions_menu->used_slots == 0)
+    menu_missions = {};
+    if ( resource_manager_can_reload_amalgapak() )
     {
-        menu_missions = {};
-        if (resource_manager_can_reload_amalgapak())
+        resource_manager_can_reload_amalgapak();
+    }
+
+    auto *head_menu = create_menu("Missions", debug_menu::sort_mode_t::ascending);
+    entry->set_submenu(head_menu);
+	debug_menu_entry v4;
+   debug_menu_entry* block1 = v4.alloc_block(head_menu, 4);
+   block1[0] = debug_menu_entry{ head_menu };
+
+    auto *mission_unload_entry = create_menu_entry(mString{"UNLOAD CURRENT MISSION"});
+
+    mission_unload_entry->set_game_flags_handler(mission_unload_handler);
+    head_menu->add_entry(mission_unload_entry);
+
+    auto *v2 = mission_manager::s_inst;
+    auto v58 = v2->get_district_table_count();
+    for ( auto i = -1; i < v58; ++i )
+    {
+        fixedstring<8> v53 {};
+        int district_id;
+        mission_table_container *table = nullptr;
+        if ( i == -1 )
         {
-            resource_manager_reload_amalgapak();
+            table = v2->get_global_table();
+            v53 = fixedstring<8> {"global"};
+            district_id = 0;
+        }
+        else
+        {
+            table = v2->get_district_table(i);
+            auto *reg = table->get_region();
+            v53 = reg->get_name();
+
+            district_id = reg->get_district_id();
+
+            auto *v25 = create_menu(v53.to_string(), debug_menu::sort_mode_t::ascending);
+   debug_menu_entry v4;
+   debug_menu_entry* block = v4.alloc_block(v25, 4);
+   block[0] = debug_menu_entry{ v25 };
+            auto *v26 = create_menu_entry(v25);
+
+            head_menu->add_entry(v26);
         }
 
-        auto* head_menu = missions_menu;
+        _std::vector<mission_table_container::script_info> script_infos;
 
-        debug_menu_entry mission_unload_entry{ "UNLOAD CURRENT MISSION" };
-
-        mission_unload_entry.set_game_flags_handler(mission_unload_handler);
-        add_debug_menu_entry(head_menu, &mission_unload_entry);
-
-        mission_manager* v2 = mission_manager::s_inst;
-        int v58 = v2->m_district_table_count;
-        for (int i = -1; i < v58; ++i)
+        if ( table != nullptr )
         {
-            fixedstring<32> v53{};
-            int v52;
-            mission_table_container* table = nullptr;
-            if (i == -1)
+            auto res = table->append_script_info(&script_infos);
+        //    assert(res);
+        }
+
+        for ( auto &info : script_infos)
+        {
+            auto v50 = menu_missions.size();
+            const auto v19 = std::string {"pk_"} + info.field_0;
+            auto *v11 = v19.c_str();
+            auto key = create_resource_key_from_path(v11, RESOURCE_KEY_TYPE_PACK);
+            if ( resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr) )
             {
-                table = v2->m_global_table_container;
-                fixedstring<32> a1{ "global" };
-                v53 = a1;
-                v52 = 0;
-            }
-            else
-            {
-                table = v2->m_district_table_containers[i];
-                auto* reg = table->field_44;
-                auto& v6 = reg->get_name();
-                v53 = v6.to_string();
+                mission_t mission {};
+                mission.field_0 = info.field_0;
+                mission.m_district_id = district_id;
+                mission.field_14 = info.field_8;
 
-                auto v52 = reg->get_district_id();
+                mission.field_C = info.field_4->get_script_data_name();
+                menu_missions.push_back(mission);
 
-                auto* v25 = create_menu(v53.to_string(), nullptr, 10);
-
-                debug_menu_entry v26{ v25 };
-
-                add_debug_menu_entry(head_menu, &v26);
-            }
-
-            _std::vector<mission_table_container::script_info> script_infos;
-
-            if (table != nullptr)
-            {
-                table->append_script_info(&script_infos);
-            }
-
-            for (auto& info : script_infos)
-            {
-                auto v50 = menu_missions.size();
-                std::string a2{ "pk_" };
-                auto v19 = a2 + info.field_0;
-                auto* v11 = v19.c_str();
-                auto key = create_resource_key_from_path(v11, RESOURCE_KEY_TYPE_PACK);
-                if (resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr))
+                mString v47{};
+                if ( mission.field_C != nullptr )
                 {
-                    mission_t mission{};
-                    mission.field_0 = info.field_0;
-                    mission.field_10 = v52;
-                    mission.field_14 = info.field_8;
-
-                    mission.field_C = info.field_4->get_script_data_name();
-                    menu_missions.push_back(mission);
-
-                    std::string v47{};
-
-                    char buff[1024];
-                    if (mission.field_C != nullptr)
-                    {
-                        auto* v17 = mission.field_C;
-                        auto* v14 = mission.field_0.c_str();
-
-                        snprintf(buff, sizeof(buff), "%s (%s)", v14, v17);
-                        v47 = buff;
-                    }
-                    else
-                    {
-                        auto v18 = mission.field_14;
-                        auto* v15 = mission.field_0.c_str();
-
-                        snprintf(buff, sizeof(buff), "%s (%d)", v15, v18);
-                        v47 = buff;
-                    }
-
-                    debug_menu_entry v27{ v47.c_str() };
-
-                    //v27->set_id(v50);
-                    v27.data1 = (void*)v50;
-
-                    v27.set_game_flags_handler(mission_select_handler);
-                    add_debug_menu_entry(head_menu, &v27);
+                    auto *v17 = mission.field_C;
+                    auto *v14 = mission.field_0.c_str();
+                    v47 = mString {0, "%s (%s)", v14, v17};
                 }
+                else
+                {
+                    auto v18 = mission.field_14;
+                    auto *v15 = mission.field_0.c_str();
+                    v47 = mString {0, "%s (%d)", v15, v18};
+                }
+
+                auto *v46 = create_menu_entry(v47);
+                v46->set_id(v50);
+                v46->set_game_flags_handler(mission_select_handler);
+                head_menu->add_entry(v46);
             }
         }
-
     }
 }
 
-#include "fe_health_widget.h"
-constexpr auto NUM_HEROES = 10u;
 
-const char* hero_list[NUM_HEROES] = {
-        "ultimate_spiderman",
-        "arachno_man_costume",
-        "usm_wrestling_costume",
-        "usm_blacksuit_costume",
-        "peter_parker",
-        "peter_parker_costume",
-        "peter_hooded",
-        "peter_hooded_costume",
-        "venom",
-        "venom_spider"
-};
+void _populate_missions()
+{
+    auto handle_table = [](mission_table_container *table, int district_id) -> void
+    {
+
+        _std::vector<mission_table_container::script_info> script_infos{};
+
+        if ( table != nullptr )
+        {
+            table->append_script_info(&script_infos);
+        }
+
+        for ( auto &info : script_infos )
+        {
+                std::string a2{ "pk_" };
+                auto v19 = a2 + info.field_0;
+                auto* v11 = v19.c_str();
+            auto key = create_resource_key_from_path(v11, RESOURCE_KEY_TYPE_PACK);
+            if ( resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr) )
+            {
+                mission_t mission{};
+                mission.field_0 = info.field_0;
+                mission.m_district_id = district_id;
+                mission.field_14 = info.field_8;
+
+                mission.field_C = info.field_4->get_script_data_name();
+                menu_missions.push_back(mission);
+
+                auto v47 = [](mission_t &mission) -> mString {
+                    if ( mission.field_C != nullptr )
+                    {
+                        auto *v17 = mission.field_C;
+                        auto *v14 = mission.field_0.c_str();
+                        mString str{0, "%s (%s)", v14, v17};
+                        return str;
+                    }
+
+                    auto v18 = mission.field_14;
+                    auto *v15 = mission.field_0.c_str();
+                    mString str{0, "%s (%d)", v15, v18};
+                    return str;
+
+                }(mission);
+
+                sp_log(v47.c_str());
+            }
+        }
+    };
+
+    auto *v2 = mission_manager::s_inst;
+    auto count = v2->get_district_table_count();
+    sp_log("%s %d", "table_count = ", count);
+
+    {
+        auto *v3 = mission_manager::s_inst;
+        auto *table = v3->get_global_table();
+
+        handle_table(table, 0);
+    }
+
+
+    std::for_each(&v2->m_district_table_containers[0], &v2->m_district_table_containers[0] + count, [&handle_table](auto *table) {
+
+        auto *reg = table->get_region();
+        auto &v6 = reg->get_name();
+        fixedstring<8> v53{v6.to_string()};
+
+        auto district_id = reg->get_district_id();
+
+        //sp_log("%d %s", i, v53.to_string());
+
+        handle_table(table, district_id);
+    });
+
+    assert(0);
+}
+
+
+
+
+
+void create_missions_menu(debug_menu* parent)
+{
+
+    auto* missions_menu = create_menu("Missions");
+    auto* v2 = create_menu_entry(missions_menu);
+   debug_menu_entry v1;
+    debug_menu_entry* block = v1.alloc_block(missions_menu, 4);
+    block[0] = debug_menu_entry{ missions_menu };
+    v2->set_game_flags_handler(populate_missions_menu);
+    parent->add_entry(v2);
+}
+
+// Game
+// ----------------------------------------------------------------------------------
+#include "os_developer_options.h"
+#include "devopt.h"
+inline constexpr auto NUM_OPTIONS = 150u + 76u;
+
+typedef bool(__fastcall* entity_tracker_manager_get_the_arrow_target_pos_ptr)(void*, void*, vector3d*);
+entity_tracker_manager_get_the_arrow_target_pos_ptr entity_tracker_manager_get_the_arrow_target_pos = (entity_tracker_manager_get_the_arrow_target_pos_ptr)0x0062EE10;
+
+void create_devopt_menu(debug_menu* parent)
+{
+    assert(parent != nullptr);
+
+    auto* v22 = create_menu("Devopts", handle_game_entry, 300);
+
+    for (auto idx = 0u; idx < NUM_OPTIONS; ++idx)
+    {
+        auto* v21 = get_option(idx);
+        switch (v21->m_type)
+        {
+        case game_option_t::INT_OPTION:
+        {
+            auto v20 = debug_menu_entry(mString{ v21->m_name });
+            v20.set_p_ival(v21->m_value.p_ival);
+            v20.set_min_value(-1000.0);
+            v20.set_max_value(1000.0);
+            v22->add_entry(&v20);
+            break;
+        }
+        case game_option_t::FLAG_OPTION:
+        {
+            auto v19 = debug_menu_entry(mString{ v21->m_name });
+            v19.set_pt_bval((bool*)v21->m_value.p_bval);
+            v22->add_entry(&v19);
+            break;
+        }
+        case game_option_t::FLOAT_OPTION:
+        {
+            auto v18 = debug_menu_entry(mString{ v21->m_name });
+            v18.set_pt_fval(v21->m_value.p_fval);
+            v18.set_min_value(-1000.0);
+            v18.set_max_value(1000.0);
+            v22->add_entry(&v18);
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
+    auto v5 = debug_menu_entry(v22);
+    parent->add_entry(&v5);
+}
+
+void create_game_flags_menu(debug_menu* parent)
+{
+    if (parent->used_slots != 0)
+    {
+        return;
+    }
+
+    assert(parent != nullptr);
+
+    auto* v92 = parent;
+
+    auto v89 = debug_menu_entry(mString{ "Report SLF Recall Timeouts" });
+    static bool byte_1597BC0 = false;
+    v89.set_pt_bval(&byte_1597BC0);
+    //v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "Physics Enabled" });
+    v89.set_bval(true);
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(0);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "Single Step" });
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(1);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "Slow Motion Enabled" });
+    v89.set_bval(false);
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(2);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry{ mString{"Monkey Enabled"} };
+
+    auto v1 = spider_monkey::is_running();
+    v89.set_bval(v1);
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(3);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry{ mString{"Rumble Enabled"} };
+    v89.set_bval(true);
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(4);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "God Mode" });
+    v89.set_ival(os_developer_options::instance->get_int(mString{ "GOD_MODE" }));
+
+    const float v2[4] = { 0, 5, 1, 1 };
+    v89.set_fl_values(v2);
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(5);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "Show Districts" });
+    v89.set_bval(os_developer_options::instance->get_flag(mString{ "SHOW_STREAMER_INFO" }));
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(6);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "Show Hero Position" });
+    v89.set_bval(os_developer_options::instance->get_flag(mString{ "SHOW_DEBUG_INFO" }));
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(7);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "Show FPS" });
+    v89.set_bval(os_developer_options::instance->get_flag(mString{ "SHOW_FPS" }));
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(8);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "User Camera on Controller 2" });
+    v89.set_bval(os_developer_options::instance->get_flag(mString{ "USERCAM_ON_CONTROLLER2" }));
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(9);
+    v92->add_entry(&v89);
+
+    v89 = debug_menu_entry(mString{ "Toggle Unload All Districts" });
+    v89.set_game_flags_handler(game_flags_handler);
+    v89.set_id(13);
+    v92->add_entry(&v89);
+
+    {
+        auto* v88 = create_menu("Save/Load", handle_game_entry, 10);
+        auto v18 = debug_menu_entry(v88);
+        v92->add_entry(&v18);
+
+        v89 = debug_menu_entry(mString{ "Save Game" });
+        v89.set_game_flags_handler(game_flags_handler);
+        v89.set_id(14);
+        v88->add_entry(&v89);
+
+        v89 = debug_menu_entry(mString{ "Load Game" });
+        v89.set_game_flags_handler(game_flags_handler);
+        v89.set_id(15);
+        v88->add_entry(&v89);
+
+        v89 = debug_menu_entry(mString{ "Attemp Auto Load" });
+        v89.set_game_flags_handler(game_flags_handler);
+        v89.set_id(16);
+        v88->add_entry(&v89);
+    }
+
+    {
+        auto* v87 = create_menu("Screenshot", handle_game_entry, 10);
+        auto v23 = debug_menu_entry(v87);
+        v92->add_entry(&v23);
+
+        v89 = debug_menu_entry(mString{ "Hires Screenshot" });
+        v89.set_game_flags_handler(game_flags_handler);
+        v89.set_id(11);
+        v87->add_entry(&v89);
+
+        v89 = debug_menu_entry(mString{ "Lores Screenshot" });
+        v89.set_game_flags_handler(game_flags_handler);
+        v89.set_id(12);
+        v87->add_entry(&v89);
+    }
+
+    create_devopt_menu(v92);
+    create_gamefile_menu(v92);
+}
 
 // app_rebooter.hpp
 #pragma once
@@ -3976,6 +4109,22 @@ inline void SelectScene(const std::string& sceneName)
         SelectScene("characterb_arena"); // or "city_arena"
         restart();
     }
+	
+	#include "fe_health_widget.h"
+constexpr auto NUM_HEROES = 10u;
+
+const char* hero_list[NUM_HEROES] = {
+        "ultimate_spiderman",
+        "arachno_man_costume",
+        "usm_wrestling_costume",
+        "usm_blacksuit_costume",
+        "peter_parker",
+        "peter_parker_costume",
+        "peter_hooded",
+        "peter_hooded_costume",
+        "venom",
+        "venom_spider"
+};
 
 enum class hero_status_e {
     UNDEFINED = 0,
@@ -4075,9 +4224,39 @@ void characterb_handler(debug_menu_entry *)
 	swap_level();
 }
 
-inline void create_level_select_menu(debug_menu* level_select_menu)
+    void remove_player(int player_num)
+    {
+        void (__fastcall *func)(void *, void *, int) = bit_cast<decltype(func)>(0x00558550);
+
+        func(g_world_ptr, nullptr, player_num);
+    }
+
+
+
+    int add_player(const mString &a2)
+    {
+        int (__fastcall *func)(void *, void *, const mString *) = bit_cast<decltype(func)>(0x0055B400);
+
+        return func(g_world_ptr, nullptr, &a2);
+    }
+
+
+
+
+
+inline void create_level_select_menu(debug_menu* parent)
 {
     // assert(debug_menu::root_menu != nullptr);
+
+    auto* level_select_menu = create_menu("Level Select");
+    auto* v15 = create_menu_entry(level_select_menu);
+    parent->add_entry(v15);
+
+            debug_menu_entry v1;
+    debug_menu_entry* block = v1.alloc_block(level_select_menu, 4);
+    block[0] = debug_menu_entry { level_select_menu };
+
+	
 
 
 
@@ -4086,6 +4265,10 @@ inline void create_level_select_menu(debug_menu* level_select_menu)
 
     debug_menu_entry v28 { hero_select_menu };
 
+
+            debug_menu_entry v2;
+    debug_menu_entry* block1 = v2.alloc_block(hero_select_menu, 4);
+    block1[0] = debug_menu_entry { hero_select_menu };
 
     level_select_menu->add_entry(&v28);
     for (auto i = 0u; i < NUM_HEROES; ++i) {
@@ -4105,8 +4288,6 @@ inline void create_level_select_menu(debug_menu* level_select_menu)
             hero_select_menu->add_entry(&v37);
         }
     }
-
-
             mString v23 { "city" };
     debug_menu_entry v40 { v23.c_str() };
 
@@ -4126,8 +4307,11 @@ inline void create_level_select_menu(debug_menu* level_select_menu)
 
     v38.set_game_flags_handler(reboot_handler);
 
-    level_select_menu->add_entry(&v38);
-    }
+    level_select_menu->add_entry(&v38);    
+	
+}
+
+ 
 
 
 void hero_toggle_handler(debug_menu_entry* entry)
@@ -4147,7 +4331,7 @@ void hero_entry_callback(debug_menu_entry*)
     {
     case hero_status_e::REMOVE_PLAYER:
     {
-        g_world_ptr->remove_player(v18 - 1);
+        remove_player(v18 - 1);
         hero_status = hero_status_e::ADD_PLAYER;
         frames_to_skip = 2;
         g_game_ptr->enable_marky_cam(true, true, -1000.0, 0.0);
@@ -4160,8 +4344,8 @@ void hero_entry_callback(debug_menu_entry*)
         {
             assert(hero_selected > -1 && hero_selected < NUM_HEROES);
 
-            [[maybe_unused]] auto v2 = g_world_ptr->add_player(mString{ hero_list[hero_selected] });
-
+            [[maybe_unused]] auto v2 = add_player(mString{ hero_list[hero_selected] });
+            Sleep(1000);
             /*
             auto v10 = v2 <= v18;
 
@@ -4209,208 +4393,313 @@ void hero_entry_callback(debug_menu_entry*)
     }
 }
 
+#pragma endregion
+
+// Debug Menu
+// ----------------------------------------------------------------------------------
+
+void debug_menu::init() {
+    root_menu = create_menu("Debug Menu", handle_debug_entry, 10);
+    game_menu = create_menu("Game", handle_game_entry, 300);
+
+    script_menu = create_menu("Script");
+    progression_menu = create_menu("Progression");
+
+	
+		debug_menu_entry v1;
+   debug_menu_entry* block = v1.alloc_block(game_menu, 4);
+   block[0] = debug_menu_entry{ game_menu };
+   
+   		debug_menu_entry v2;
+   debug_menu_entry* block1 = v2.alloc_block(script_menu, 4);
+   block1[0] = debug_menu_entry{ script_menu };
+
+   		debug_menu_entry v3;
+   debug_menu_entry* block2 = v3.alloc_block(progression_menu, 4);
+   block2[0] = debug_menu_entry{ progression_menu };
+   
+    debug_menu_entry game_entry{ game_menu };
+
+    debug_menu_entry script_entry{ script_menu };
+    debug_menu_entry progression_entry{ progression_menu };
+
+    create_dvars_menu(root_menu);
+    create_warp_menu(root_menu);
+	create_game_flags_menu(game_menu);
+    add_debug_menu_entry(root_menu, &game_entry);
+    create_missions_menu(root_menu);
+	create_debug_render_menu(root_menu);
+    create_debug_district_variants_menu(root_menu);
+	create_replay_menu(root_menu);
+	create_ai_root_menu(root_menu);
+	create_memory_menu(root_menu);
+    create_entity_variants_menu(root_menu);
+	create_entity_animation_menu(root_menu);
+    create_level_select_menu(root_menu);
+	add_debug_menu_entry(root_menu, &script_entry);
+    add_debug_menu_entry(root_menu, &progression_entry);
+	create_camera_menu_items(root_menu);
+
+
+    /*
+    for (int i = 0; i < 5; i++) {
+
+        debug_menu_entry asdf;
+        sprintf(asdf.text, "entry %d", i);
+        printf("AQUI %s\n", asdf.text);
+
+        add_debug_menu_entry(debug_menu::root_menu, &asdf);
+    }
+    add_debug_menu_entry(debug_menu::root_menu, &teste);
+    */
+}
+#ifdef _WIN32
+#define _USE_MATH_DEFINES
+#define NOMINMAX
+#endif
+
+void render_current_debug_menu() {
+    auto UP_ARROW{ " ^ ^ ^ " };
+    auto DOWN_ARROW{ " v v v " };
+
+    int num_elements = std::min((DWORD)MAX_ELEMENTS_PAGE, current_menu->used_slots - current_menu->window_start);
+    int needs_down_arrow = ((current_menu->window_start + MAX_ELEMENTS_PAGE) < current_menu->used_slots) ? 1 : 0;
+
+    int cur_width, cur_height;
+    int debug_width = 0;
+    int debug_height = 0;
+
+    auto get_and_update = [&](auto* x) {\
+        getStringDimensions(x, &cur_width, &cur_height); \
+        debug_height += cur_height; \
+        debug_width = std::max(debug_width, cur_width); \
+        };
+
+    //printf("new size: %s %d %d (%d %d)\n", x, debug_width, debug_height, cur_width, cur_height);
+
+    get_and_update(current_menu->title);
+    get_and_update(UP_ARROW);
+
+    int total_elements_page = needs_down_arrow ? MAX_ELEMENTS_PAGE : current_menu->used_slots - current_menu->window_start;
+
+    for (int i = 0; i < total_elements_page; ++i) {
+        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
+        auto cur = getRealText(entry);
+        get_and_update(cur.c_str());
+    }
+
+    if (needs_down_arrow) {
+        get_and_update(DOWN_ARROW);
+    }
+
+    nglQuad quad;
+
+    int menu_x_start = 20, menu_y_start = 40;
+    int menu_x_pad = 24, menu_y_pad = 18;
+
+    nglInitQuad(&quad);
+    nglSetQuadRect(&quad, menu_x_start, menu_y_start, menu_x_start + debug_width + menu_x_pad, menu_y_start + debug_height + menu_y_pad);
+    nglSetQuadColor(&quad, debug_menu::has_focus ? 0xC8141414 : 0x64141414);
+    nglSetQuadZ(&quad, 0.5f);
+    nglListAddQuad(&quad);
+    
+    int white_color = nglColor(255, 255, 255, 255);
+    int yellow_color = nglColor(255, 255, 0, 255);
+    int green_color = nglColor(0, 255, 0, 255);
+    int pink_color = nglColor(255, 0, 255, 255);
+
+    int render_height = menu_y_start;
+    render_height += 12;
+    int render_x = menu_x_start;
+    render_x += 8;
+    
+    nglListAddString(nglSysFont(), render_x, render_height, 0.2f, green_color, 1.f, 1.f, current_menu->title);
+    render_height += getStringHeight(current_menu->title);
+
+    if (current_menu->window_start) {
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, UP_ARROW);
+    }
+
+    render_height += getStringHeight(UP_ARROW);
+
+    for (int i = 0; i < total_elements_page; i++) {
+
+        int current_color = current_menu->cur_index == i ? yellow_color : white_color;
+
+        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
+        auto cur = getRealText(entry);
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, current_color, 1.f, 1.f, cur.c_str());
+        render_height += getStringHeight(cur.c_str());
+    }
+
+    if (needs_down_arrow) {
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, DOWN_ARROW);
+        render_height += getStringHeight(DOWN_ARROW);
+    }
+}
+
+void debug_nglListEndScene_hook() {
+    g_console->render();
+
+    if (debug_enabled) 
+        render_current_debug_menu();
+	
+	    if (debug_disabled) 
+        render_current_debug_menu();
+
+    nglListEndScene();
+}
+
+void close_debug()
+{
+    debug_enabled = 0;
+    debug_disabled = 0;
+    g_game_ptr->unpause();
+    g_game_ptr->enable_physics(true);
+}
+
+void disable_physics()
+{
+    debug_enabled = 1;
+    g_game_ptr->unpause();
+    current_menu = current_menu;
+    g_game_ptr->enable_physics(false);
+}
+
+void enable_physics()
+{
+    debug_disabled = 1;
+    g_game_ptr->unpause();
+    current_menu = current_menu;
+    g_game_ptr->enable_physics(true);
+}
+
+void custom()
+{
+    debug_disabled = 1;
+    g_game_ptr->unpause();
+    current_menu = current_menu;
+    !os_developer_options::instance->get_flag("ENABLE_ZOOM_MAP");
+    spider_monkey::is_running();
+    g_game_ptr->enable_physics(false);
+}
+
+
+
+
+
+
+
+
+
+
 void menu_setup(int game_state, int keyboard) {
+	if (is_menu_key_pressed(MENU_TOGGLE, keyboard) && (game_state == 6 || game_state == 7)) {
 
     //debug menu stuff
-    if (is_menu_key_pressed(MENU_TOGGLE, keyboard) && (game_state == 6 || game_state == 7)) {
+        if (!debug_enabled && game_state == 6) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = debug_menu::root_menu;
+                custom();
+            }
 
-        if (debug_enabled && game_state == 7) {
-            g_game_ptr->unpause();
-            debug_enabled = !debug_enabled;
+            else if (!debug_disabled && game_state == 6) {
+                g_game_ptr->unpause();
+                debug_disabled = !debug_disabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled && game_state == 6) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled, debug_disabled && game_state == 6) {
+                g_game_ptr->unpause();
+                debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
+                current_menu = current_menu;
+                enable_physics();
+            }
         }
-        else if (!debug_enabled && game_state == 6) {
-            g_game_ptr->pause();
-            debug_enabled = !debug_enabled;
-            current_menu = debug_menu::root_menu;
-        }
 
-        populate_missions_menu(missions_menu);
+        if (is_menu_key_pressed(MENU_TOGGLE, keyboard) && (game_state == 6 || game_state == 7)) {
 
-        create_game_flags_menu(game_menu);
+            if (!debug_enabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = debug_menu::root_menu;
+                disable_physics();
 
-        if (level_select_menu->used_slots == 0)
-        {
-            create_level_select_menu(level_select_menu);
-        }
+            }
+
+            else if (!debug_disabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_disabled = !debug_disabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled, debug_disabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
+                current_menu = current_menu;
+                enable_physics();
+            }
+
+            if (!debug_enabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = debug_menu::root_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_disabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_disabled = !debug_disabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled, debug_disabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
+                current_menu = current_menu;
+                enable_physics();
+            }
+
+
+
+
+
     }
 }
 
-#include "os_developer_options.h"
-#include "devopt.h"
-inline constexpr auto NUM_OPTIONS = 150u + 76u;
 
-typedef bool(__fastcall* entity_tracker_manager_get_the_arrow_target_pos_ptr)(void*, void*, vector3d*);
-entity_tracker_manager_get_the_arrow_target_pos_ptr entity_tracker_manager_get_the_arrow_target_pos = (entity_tracker_manager_get_the_arrow_target_pos_ptr)0x0062EE10;
-
-void create_devopt_menu(debug_menu* parent)
-{
-    assert(parent != nullptr);
-
-    auto* v22 = create_menu("Devopts", handle_game_entry, 300);
-
-    for (auto idx = 0u; idx < NUM_OPTIONS; ++idx)
-    {
-        auto* v21 = get_option(idx);
-        switch (v21->m_type)
-        {
-        case game_option_t::INT_OPTION:
-        {
-            auto v20 = debug_menu_entry(mString{ v21->m_name });
-            v20.set_p_ival(v21->m_value.p_ival);
-            v20.set_min_value(-1000.0);
-            v20.set_max_value(1000.0);
-            v22->add_entry(&v20);
-            break;
-        }
-        case game_option_t::FLAG_OPTION:
-        {
-            auto v19 = debug_menu_entry(mString{ v21->m_name });
-            v19.set_pt_bval((bool*)v21->m_value.p_bval);
-            v22->add_entry(&v19);
-            break;
-        }
-        case game_option_t::FLOAT_OPTION:
-        {
-            auto v18 = debug_menu_entry(mString{ v21->m_name });
-            v18.set_pt_fval(v21->m_value.p_fval);
-            v18.set_min_value(-1000.0);
-            v18.set_max_value(1000.0);
-            v22->add_entry(&v18);
-            break;
-        }
-        default:
-            break;
-        }
-    }
-
-    auto v5 = debug_menu_entry(v22);
-    parent->add_entry(&v5);
-}
-void create_game_flags_menu(debug_menu* parent)
-{
-    if (parent->used_slots != 0)
-    {
-        return;
-    }
-
-    assert(parent != nullptr);
-
-    auto* v92 = parent;
-
-    auto v89 = debug_menu_entry(mString{ "Report SLF Recall Timeouts" });
-    static bool byte_1597BC0 = false;
-    v89.set_pt_bval(&byte_1597BC0);
-    //v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "Physics Enabled" });
-    v89.set_bval(true);
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(0);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "Single Step" });
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(1);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "Slow Motion Enabled" });
-    v89.set_bval(false);
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(2);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry{ mString{"Monkey Enabled"} };
-
-    auto v1 = spider_monkey::is_running();
-    v89.set_bval(v1);
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(3);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry{ mString{"Rumble Enabled"} };
-    v89.set_bval(true);
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(4);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "God Mode" });
-    v89.set_ival(os_developer_options::instance->get_int(mString{ "GOD_MODE" }));
-
-    const float v2[4] = { 0, 5, 1, 1 };
-    v89.set_fl_values(v2);
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(5);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "Show Districts" });
-    v89.set_bval(os_developer_options::instance->get_flag(mString{ "SHOW_STREAMER_INFO" }));
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(6);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "Show Hero Position" });
-    v89.set_bval(os_developer_options::instance->get_flag(mString{ "SHOW_DEBUG_INFO" }));
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(7);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "Show FPS" });
-    v89.set_bval(os_developer_options::instance->get_flag(mString{ "SHOW_FPS" }));
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(8);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "User Camera on Controller 2" });
-    v89.set_bval(os_developer_options::instance->get_flag(mString{ "USERCAM_ON_CONTROLLER2" }));
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(9);
-    v92->add_entry(&v89);
-
-    v89 = debug_menu_entry(mString{ "Toggle Unload All Districts" });
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(13);
-    v92->add_entry(&v89);
-
-    {
-        auto* v88 = create_menu("Save/Load", handle_game_entry, 10);
-        auto v18 = debug_menu_entry(v88);
-        v92->add_entry(&v18);
-
-        v89 = debug_menu_entry(mString{ "Save Game" });
-        v89.set_game_flags_handler(game_flags_handler);
-        v89.set_id(14);
-        v88->add_entry(&v89);
-
-        v89 = debug_menu_entry(mString{ "Load Game" });
-        v89.set_game_flags_handler(game_flags_handler);
-        v89.set_id(15);
-        v88->add_entry(&v89);
-
-        v89 = debug_menu_entry(mString{ "Attemp Auto Load" });
-        v89.set_game_flags_handler(game_flags_handler);
-        v89.set_id(16);
-        v88->add_entry(&v89);
-    }
-
-    {
-        auto* v87 = create_menu("Screenshot", handle_game_entry, 10);
-        auto v23 = debug_menu_entry(v87);
-        v92->add_entry(&v23);
-
-        v89 = debug_menu_entry(mString{ "Hires Screenshot" });
-        v89.set_game_flags_handler(game_flags_handler);
-        v89.set_id(11);
-        v87->add_entry(&v89);
-
-        v89 = debug_menu_entry(mString{ "Lores Screenshot" });
-        v89.set_game_flags_handler(game_flags_handler);
-        v89.set_id(12);
-        v87->add_entry(&v89);
-    }
-
-    create_devopt_menu(v92);
-    create_gamefile_menu(v92);
-}
 
 
 void init_shadow_targets2()
@@ -4424,20 +4713,21 @@ void init_shadow_targets2()
 
 uint8_t __stdcall slf__debug_menu_entry__set_handler__str(vm_stack* stack, void* unk) {
 
-    stack->pop(8);
+stack->pop(8);
 
-    void** params = (void**)stack->SP;
+void** params = (void**)stack->SP;
 
-    debug_menu_entry* entry = static_cast<decltype(entry)>(params[0]);
-    const char* scrpttext = static_cast<char*>(params[1]);
+debug_menu_entry* entry = static_cast<decltype(entry)>(params[0]);
+const char* scrpttext = static_cast<char*>(params[1]);
 
-    string_hash strhash{ scrpttext };
+string_hash strhash{ scrpttext };
 
-    script_instance* instance = stack->my_thread->inst;
-    entry->set_script_handler(instance, mString{ scrpttext });
+script_instance* instance = stack->my_thread->inst;
+entry->set_script_handler(instance, mString{ scrpttext });
 
-    return true;
-}
+return true;
+} 
+
 
 uint8_t __stdcall slf__destroy_debug_menu_entry__debug_menu_entry(vm_stack* function, void* unk) {
 
@@ -4495,47 +4785,47 @@ uint8_t __fastcall slf__create_progression_menu_entry(script_library_class::func
 
 bool __fastcall slf__create_debug_menu_entry(script_library_class::function* func, void*, vm_stack* stack, void* unk)
 {
-    stack->pop(4);
+stack->pop(4);
 
-    auto* stack_ptr = bit_cast<char*>(stack->SP);
-    sub_65BB36(func, stack, stack_ptr, 1);
-    char** strs = bit_cast<char**>(stack->SP);
+auto* stack_ptr = bit_cast<char*>(stack->SP);
+sub_65BB36(func, stack, stack_ptr, 1);
+char** strs = bit_cast<char**>(stack->SP);
 
-    //printf("Entry: %s ", strs[0]);
+//printf("Entry: %s ", strs[0]);
 
-    debug_menu_entry entry{};
-    entry.entry_type = debug_menu_entry_type::dUNDEFINED;
-    strcpy(entry.text, strs[0]);
+debug_menu_entry entry{};
+entry.entry_type = debug_menu_entry_type::dUNDEFINED;
+strcpy(entry.text, strs[0]);
 
-    printf("entry.text = %s\n", entry.text);
+printf("entry.text = %s\n", entry.text);
 
-    script_instance* instance = stack->my_thread->inst;
-    printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
+script_instance* instance = stack->my_thread->inst;
+printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
 
-    void* res = add_debug_menu_entry(script_menu, &entry);
+void* res = add_debug_menu_entry(script_menu, &entry);
 
-    script_executable* se = stack->my_thread->ex->owner->parent;
-    printf("total_script_objects = %d\n", se->total_script_objects);
-    for (auto i = 0; i < se->total_script_objects; ++i) {
-        auto* so = se->script_objects[i];
-        printf("Name of script_object = %s\n", so->name.to_string());
+script_executable* se = stack->my_thread->ex->owner->parent;
+printf("total_script_objects = %d\n", se->total_script_objects);
+for (auto i = 0; i < se->total_script_objects; ++i) {
+auto* so = se->script_objects[i];
+printf("Name of script_object = %s\n", so->name.to_string());
 
-        for (auto i = 0; i < so->total_funcs; ++i) {
-            printf("Func name: %s\n", so->funcs[i]->name.to_string());
-        }
+for (auto i = 0; i < so->total_funcs; ++i) {
+printf("Func name: %s\n", so->funcs[i]->name.to_string());
+}
 
-        printf("\n");
-    }
+printf("\n");
+}
 
-    se->add_allocated_stuff(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
+se->add_allocated_stuff(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
 
-    //printf("%08X\n", res);
+//printf("%08X\n", res);
 
-    int push = (int)res;
-    auto sz = sizeof(push);
-    memcpy((void*)stack->SP, &push, sz);
-    stack->SP += sz;
-    return 1;
+int push = (int)res;
+auto sz = sizeof(push);
+memcpy((void*)stack->SP, &push, sz);
+stack->SP += sz;
+return 1;
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -4614,25 +4904,44 @@ BOOL install_redirects()
 
 
     // @todo: debug menu
-    if constexpr (DEBUG_MENU_REIMPL)
-    {
-        REDIRECT(0x0052B4BF, spider_monkey::render);
+if constexpr (DEBUG_MENU_REIMPL) {
+    // Redirect and hook functions
+    REDIRECT(0x0052B4BF, spider_monkey::render);
+    HookFunc(0x004EACF0, (DWORD)aeps_RenderAll, 0, "Patching call to aeps::RenderAll");
+    HookFunc(0x0052B5D7, (DWORD)debug_nglListEndScene_hook, 0, "Hooking nglListEndScene to inject debug menu");
+    HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
+    REDIRECT(0x005E10EE, init_shadow_targets2);
 
-        HookFunc(0x004EACF0, (DWORD)aeps_RenderAll, 0, "Patching call to aeps::RenderAll");
-        HookFunc(0x0052B5D7, (DWORD)debug_nglListEndScene_hook, 0, "Hooking nglListEndScene to inject debug menu");
-        HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
-        REDIRECT(0x005E10EE, init_shadow_targets2);
+    // Define a lambda function to write DWORD values
+    auto write_dword = [](int address, DWORD new_value, const char* reason) {
+        *reinterpret_cast<DWORD*>(address) = new_value;
+        if (reason) {
+            printf("Wrote: %08X - %s\n", address, reason);
+        }
+    };
 
-        auto writeDWORD = [](int address, DWORD newValue, [[maybe_unused]] const char* reason) -> void {
-            *((DWORD*)address) = newValue;
-        };
-        writeDWORD(0x0089C710, (DWORD)slf__create_progression_menu_entry, "Hooking first ocurrence of create_progession_menu_entry");
-        writeDWORD(0x0089C718, (DWORD)slf__create_progression_menu_entry, "Hooking second  ocurrence of create_progession_menu_entry");
-        writeDWORD(0x0089AF70, (DWORD)slf__create_debug_menu_entry, "Hooking first ocurrence of create_debug_menu_entry");
-        writeDWORD(0x0089C708, (DWORD)slf__create_debug_menu_entry, "Hooking second  ocurrence of create_debug_menu_entry");
-        writeDWORD(0x0089C720, (DWORD)slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry");
-        writeDWORD(0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler");
+    // Hook debug menu entry functions
+    struct DebugMenuHook {
+        int address;
+        DWORD new_value;
+        const char* reason;
+    };
+
+    DebugMenuHook hooks[] = {
+        {0x0089C710, (DWORD)slf__create_progression_menu_entry, "Hooking first occurrence of create_progression_menu_entry"},
+        {0x0089C718, (DWORD)slf__create_progression_menu_entry, "Hooking second occurrence of create_progression_menu_entry"},
+        {0x0089AF70, (DWORD)slf__create_debug_menu_entry, "Hooking first occurrence of create_debug_menu_entry"},
+        {0x0089C708, (DWORD)slf__create_debug_menu_entry, "Hooking second occurrence of create_debug_menu_entry"},
+        {0x0089C720, (DWORD)slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry"},
+        {0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler"}
+    };
+
+    for (const auto& hook : hooks) {
+        write_dword(hook.address, hook.new_value, hook.reason);
     }
+
+    script_lib_debug_menu_patch();
+}
 
     return true;
 
