@@ -1018,6 +1018,8 @@ void script_executable::add_allocated_stuff(
     v5.second.debug_stuff_descriptions.push_front(a1);
 }
 
+
+
 void script_executable::remove_allocated_stuff(int a2, uint32_t a3)
 {
     TRACE("script_executable::remove_allocated_stuff");

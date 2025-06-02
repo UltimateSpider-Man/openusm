@@ -1249,6 +1249,11 @@ void spider_monkey::render()
     }
 
     {
+		        if (os_developer_options::instance->get_int(mString{ "FRAME_LOCK" }))
+        {
+			timeBeginPeriod(100000);
+            timeGetTime();
+        }
         if (os_developer_options::instance->get_flag(mString{ "SHOW_DEBUG_INFO" }))
         {
             g_game_ptr->show_debug_info();

@@ -737,7 +737,7 @@ void game::handle_frame_locking(float *a1)
 {
     auto frame_lock = os_developer_options::instance->get_int(mString {"FRAME_LOCK"});
     if ( frame_lock > 0 ) {
-        *a1 = 1.0 / frame_lock;
+        *a1 = 0.5 / frame_lock;
     }
 }
 
@@ -2465,7 +2465,11 @@ mString game::get_analyzer_info() const {
 
     mString info{0, "ANALYZER @ %s, f = %s", position.c_str(), facing.c_str()};
     if (!region.empty()) {
-        info += " " + region;
+        mString info{0, "ANALYZER @ %s, f = %s%s%s", 
+             position.c_str(), 
+             facing.c_str(), 
+             region.empty() ? "" : " ", 
+             region.empty() ? "" : region.c_str()};
     }
     return info;
 }

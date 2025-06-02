@@ -186,15 +186,19 @@ void mString_unit_test()
         mString s7{-123123};
         assert(s7 == "-123123");
 
-        auto s8 = s4;
+        mString s8 {};
+        s8.copy(s4);
+
         assert(s8 == test_strings[i]);
 
-        s8.update_guts("", -1);
-        s8 = s4;
+        s8.copy("", -1);
+        s8 += s4;
+
         assert(s8 == test_strings[i]);
 
-        if (std::strlen(test_strings[i]) < 512) {
-            s8.update_guts(test_strings[i], -1);
+        if (std::strlen(test_strings[i]) < 512)
+        {
+            s8.copy(test_strings[i], -1);
             s8.append(test_strings[i], -1);
 
             char buf[2048];
@@ -202,8 +206,9 @@ void mString_unit_test()
             assert(s8 == buf);
         }
 
-        if (std::strlen(test_strings[i]) < 1023) {
-            s8.update_guts(test_strings[i], -1);
+        if (std::strlen(test_strings[i]) < 1023)
+        {
+            s8.copy(test_strings[i], -1);
             s8.append('a');
 
             char buf[2048];

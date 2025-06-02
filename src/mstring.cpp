@@ -48,10 +48,7 @@ mString::mString(int a2)
 
     sprintf(Dest, "%d", a2);
 
-    this->guts = (char *) mString::null();
-
-    this->field_C = nullptr;
-    ++mString_count();
+    this->initialize(mash::ALLOCATED);
     this->update_guts(Dest, -1);
 }
 
@@ -68,18 +65,37 @@ mString &mString::operator=(const mString &a2) {
     return (*this);
 }
 
-mString::~mString() {
-    finalize(0);
+mString::~mString()
+{
+    this->finalize(mash::ALLOCATED);
 }
 
-mString mString::to_lower() {
+void mString::copy(const char *a1, int a2)
+{
+    this->update_guts(a1, a2);
+}
+
+void mString::copy(const mString &a2)
+{
+    auto len = a2.length();
+    auto *v2 = a2.c_str();
+    this->update_guts(v2, len);
+}
+
+mString & mString::to_lower()
+{
+    assert(this->guts != nullptr);
+
     strlwr(this->guts);
-    return *this;
+    return (*this);
 }
 
-mString mString::to_upper() {
+mString & mString::to_upper()
+{
+    assert(this->guts != nullptr);
+
     strupr(this->guts);
-    return *this;
+    return (*this);
 }
 
 char mString::at(int i) const
@@ -87,7 +103,8 @@ char mString::at(int i) const
     return (*this)[i];
 }
 
-char mString::operator[](int i) const {
+char mString::operator[](int i) const
+{
     assert(guts != nullptr);
     assert(i <= (int) m_size);
 
@@ -96,12 +113,16 @@ char mString::operator[](int i) const {
     return this->guts[i];
 }
 
-void mString::initialize() {
-    this->set_size(0);
-    this->field_0 = 0;
-    this->field_C = nullptr;
+void mString::initialize(mash::allocation_scope scope)
+{
+    if (scope == mash::ALLOCATED)
+    {
+        this->set_size(0);
+        this->guts = (char *) mString::null();
+    }
 
-    this->guts = (char *) mString::null();
+
+    this->field_C = nullptr;
     ++mString_count();
 }
 
@@ -128,19 +149,18 @@ int mString::find(const char *str, int a3) const {
     return mString::npos;
 }
 
-mString *mString::operator+=(const char *Source) {
-    this->append(Source, -1);
-    return this;
+mString & mString::operator+=(const char *a2)
+{
+    this->append(a2, -1);
+    return (*this);
 }
 
-mString mString::substr(int a3, int Count) const {
-    mString v7;
-    v7.append(&this->guts[a3], Count);
+mString mString::substr(int Start, int Count) const
+{
+    mString v7 {};
+    v7.append(&this->guts[Start], Count);
 
-    mString result;
-    result.update_guts(v7.guts, -1);
-
-    return result;
+    return v7;
 }
 
 int mString::find(mString::pos_t a2, char a3) const {
@@ -161,7 +181,8 @@ int mString::find(mString::pos_t a2, char a3) const {
     return v5 - v3;
 }
 
-mString mString::slice(int start, int end) {
+mString mString::slice(int start, int end)
+{
     if (start < 0) {
         start += this->size();
     }
@@ -172,7 +193,7 @@ mString mString::slice(int start, int end) {
 
     assert(start <= end);
 
-    mString result = substr(start, end - start);
+    mString result = this->substr(start, end - start);
     return result;
 }
 
@@ -218,17 +239,17 @@ int mString::rfind(char a2, int a3) const {
     return -1;
 }
 
-void mString::finalize(int) {
+void mString::finalize(mash::allocation_scope )
+{
     this->destroy_guts();
     --mString_count();
 }
 
 mString::mString()
     : mContainer(), guts(""),
-
-      field_C(nullptr) {
-
-    ++(mString_count());
+      field_C(nullptr)
+{
+    this->initialize(mash::ALLOCATED);
 }
 
 mString::mString([[maybe_unused]] mString::fmtd fmt, const char *Format, ...) {
@@ -240,10 +261,7 @@ mString::mString([[maybe_unused]] mString::fmtd fmt, const char *Format, ...) {
     this->field_0 = 0;
     vsprintf(Dest, Format, Args);
 
-    this->guts = (char *) mString::null();
-    ++mString_count();
-
-    this->field_C = nullptr;
+    this->initialize(mash::ALLOCATED);
     this->update_guts(Dest, -1);
 }
 
@@ -272,8 +290,9 @@ double mString::to_float() const {
     return std::atof(this->guts);
 }
 
-static const char *sub_1067BA0(const char *a1, int a2) {
-    if (!a1) {
+static const char * mString_strchr(const char *a1, int a2)
+{
+    if (a1 == nullptr) {
         return nullptr;
     }
 
@@ -284,43 +303,44 @@ static const char *sub_1067BA0(const char *a1, int a2) {
 
     const char *result = nullptr;
 
-    if (*i) {
+    if (i[0] != '\0') {
         result = i;
     }
 
     return result;
 }
 
-mString mString::remove_leading(const char *a1) {
+mString & mString::remove_leading(const char *a1) {
     int start;
-    for (start = 0; start < this->size() && sub_1067BA0(a1, this->guts[start]) != nullptr; ++start) {
+    for (start = 0; start < this->size() && mString_strchr(a1, this->guts[start]) != nullptr; ++start) {
         ;
     }
 
     auto end = this->size();
     auto v5 = this->slice(start, end);
-    *this = v5;
+    this->copy(v5);
 
-    return *this;
+    return (*this);
 }
 
-mString mString::remove_trailing(const char *a2) {
+mString & mString::remove_trailing(const char *a2) {
     int end;
-    for (end = this->size(); end > 0 && sub_1067BA0(a2, this->guts[end - 1]) != nullptr; --end) {
+    for (end = this->size(); end > 0 && mString_strchr(a2, this->guts[end - 1]) != nullptr; --end) {
         ;
     }
 
     auto a1 = this->slice(0, end);
-    *this = a1;
+    this->copy(a1);
 
-    return *this;
+    return (*this);
 }
 
-mString mString::remove_surrounding_whitespace() {
+mString & mString::remove_surrounding_whitespace()
+{
     this->remove_leading(" \n\t\r");
-
     this->remove_trailing(" \n\t\r");
-    return *this;
+
+    return (*this);
 }
 
 bool operator==(const mString &a1, const mString &a2) {
@@ -432,36 +452,20 @@ void mString::destroy_guts() {
     }
 }
 
-mString operator+(const char *a2, const mString &a3) {
-    mString v5;
+mString operator+(const char *a2, const mString &a3)
+{
+    mString v5 {a2};
+    v5 += a3;
 
-    if (a2 != nullptr) {
-        v5.update_guts(a2, -1);
-    }
-
-    v5.append(a3.guts, 0xFFFFFFFF);
-
-    mString a1{};
-
-    a1.update_guts(v5.guts, -1);
-
-    return a1;
+    return v5;
 }
 
-mString operator+(const mString &arg4, const char *Source) {
-    char *v3 = arg4.guts;
+mString operator+(const mString &a1, const char *a2)
+{
+    mString v6 = a1;
+    v6.append(a2, -1);
 
-    mString v6;
-    v6.update_guts(v3, -1);
-
-    v6.append(Source, 0xFFFFFFFF);
-    char *v4 = v6.guts;
-
-    mString a1 {};
-
-    a1.update_guts(v4, -1);
-
-    return a1;
+    return v6;
 }
 
 mString mString::get_standalone_filename(const mString &arg4, _nlPlatformEnum a3) {
@@ -477,33 +481,26 @@ mString mString::get_standalone_filename(const mString &arg4, _nlPlatformEnum a3
     return res;
 }
 
-mString *mString::operator+=(const mString &a2) {
-    this->append(a2.guts, 0xFFFFFFFF);
-    return this;
+mString & mString::operator+=(const mString &a2)
+{
+    this->append(a2.c_str(), -1);
+    return (*this);
 }
 
-mString operator+(const mString &a2, const mString &a3) {
-    const char *v3 = a2.guts;
-    mString v7;
-    v7.update_guts(v3, -1);
+mString operator+(const mString &a2, const mString &a3)
+{
+    mString v7 = a2;
+    v7 += a3;
 
-    const char *v4 = a3.guts;
-    v7.append(v4, 0xFFFFFFFF);
-    const char *v5 = v7.guts;
-
-    mString a1{};
-    a1.update_guts(v5, -1);
-
-    return a1;
+    return v7;
 }
 
-mString mString::truncate(int a2) {
-    int v4; // edx
-
+mString mString::truncate(int a2)
+{
     auto *result = this;
     auto v3 = this->size();
     if (v3) {
-        v4 = a2;
+        int v4 = a2;
         if (a2 < 0) {
             v4 = 0;
         }
@@ -519,14 +516,16 @@ mString mString::truncate(int a2) {
     return *result;
 }
 
-int mString::compare(const char *str) const {
+int mString::compare(const char *str) const
+{
     assert(str != nullptr);
     assert(guts != nullptr);
 
     auto *v3 = this->guts;
 
     uint32_t i;
-    for (i = 0; i < this->m_size; ++i) {
+    for (i = 0; i < this->m_size; ++i)
+    {
         if (str[i] == '\0') {
             return -1;
         }
@@ -545,7 +544,8 @@ int mString::compare(const char *str) const {
     return str[i] != '\0';
 }
 
-bool mString::is_equal(const char *a2) const {
+bool mString::is_equal(const char *a2) const
+{
     assert(guts != nullptr);
     return strncmp(this->guts, a2, 65535) == 0;
 }
