@@ -560,7 +560,7 @@ void parse_cmd(const char *str)
             } else if (strnicmp(i, "smoketest", strlen(i)) == 0) {
                 os_developer_options::instance->set_flag(75, true);
             } else if (strnicmp(i, "-entityids", strlen(i))) {
-                if (strlen(i) > 2 && strnicmp(i, "-f", 2u) == 0) {
+                if (strlen(i) > 20 && strnicmp(i, "-f", 20u) == 0) {
                     mString v13{i};
 
                     auto v2 = v13.find({2}, '=');
@@ -2413,54 +2413,54 @@ void menu_go_up() {
 
 }
 
-void menu_input_handler(int keyboard, int SCROLL_SPEED) {
+void menu_input_handler(int keyboard, int SCROLL_SPEED)
+{
     if (is_menu_key_clicked(MENU_DOWN, keyboard)) {
 
         int key_val = get_menu_key_value(MENU_DOWN, keyboard);
         if (key_val == 1) {
             menu_go_down();
-        }
-        else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
+        } else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
             menu_go_down();
         }
-    }
-    else if (is_menu_key_clicked(MENU_UP, keyboard)) {
+    } else if (is_menu_key_clicked(MENU_UP, keyboard)) {
 
         int key_val = get_menu_key_value(MENU_UP, keyboard);
         if (key_val == 1) {
             menu_go_up();
-        }
-        else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
+        } else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
             menu_go_up();
         }
-    }
-    else if (is_menu_key_pressed(MENU_ACCEPT, keyboard))
-    {
+    } else if (is_menu_key_pressed(MENU_ACCEPT, keyboard)) {
         auto* entry = &current_menu->entries[current_menu->window_start + current_menu->cur_index];
         assert(entry != nullptr);
         entry->on_select(1.0);
 
-        //current_menu->handler(entry, ENTER);
-    }
-    else if (is_menu_key_pressed(MENU_BACK, keyboard)) {
+        // current_menu->handler(entry, ENTER);
+    } else if (is_menu_key_pressed(MENU_BACK, keyboard)) {
         current_menu->go_back();
-    }
-    else if (is_menu_key_pressed(MENU_LEFT, keyboard) || is_menu_key_pressed(MENU_RIGHT, keyboard)) {
-
+    } else if (is_menu_key_clicked(MENU_LEFT, keyboard)) { // Use is_menu_key_clicked here
         debug_menu_entry* cur = &current_menu->entries[current_menu->window_start + current_menu->cur_index];
-        if (is_menu_key_pressed(MENU_LEFT, keyboard)) {
+        int key_val = get_menu_key_value(MENU_LEFT, keyboard);
+        if (key_val == 1) {
+            cur->on_change(-1.0, false);
+        } else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
             cur->on_change(-1.0, false);
         }
-        else {
+    } else if (is_menu_key_clicked(MENU_RIGHT, keyboard)) { // Use is_menu_key_clicked here
+        debug_menu_entry* cur = &current_menu->entries[current_menu->window_start + current_menu->cur_index];
+        int key_val = get_menu_key_value(MENU_RIGHT, keyboard);
+        if (key_val == 1) {
+            cur->on_change(1.0, true);
+        } else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
             cur->on_change(1.0, true);
         }
     }
 
     debug_menu_entry* highlighted = &current_menu->entries[current_menu->window_start + current_menu->cur_index];
-  //  assert(highlighted->frame_advance_callback != nullptr);
+    assert(highlighted->frame_advance_callback != nullptr);
     highlighted->frame_advance_callback(highlighted);
 }
-
 
 typedef int (__stdcall* GetDeviceState_ptr)(IDirectInputDevice8*, DWORD, LPVOID);
 GetDeviceState_ptr GetDeviceStateOriginal = nullptr;
@@ -2756,7 +2756,7 @@ void aeps_RenderAll() {
     uint8_t green = color_ramp_function(ratio, period, cur_time);
     uint8_t blue = color_ramp_function(ratio, period, cur_time - 2 * period);
 
-    nglListAddString(*nglSysFont, 0.1f, 0.2f, 0.2f, nglColor(red, green, blue, 255), 1.f, 1.f, "Krystalgamer's Debug menu");
+    nglListAddString(*nglSysFont, 0.1f, 0.2f, 0.2f, nglColor(red, green, blue, 255), 1.f, 1.f, "");
 
     cur_time = (cur_time + 1) % duration;
 
@@ -4111,19 +4111,26 @@ inline void SelectScene(const std::string& sceneName)
     }
 	
 	#include "fe_health_widget.h"
-constexpr auto NUM_HEROES = 10u;
+constexpr auto NUM_HEROES = 17u;
 
 const char* hero_list[NUM_HEROES] = {
-        "ultimate_spiderman",
-        "arachno_man_costume",
-        "usm_wrestling_costume",
-        "usm_blacksuit_costume",
-        "peter_parker",
-        "peter_parker_costume",
-        "peter_hooded",
-        "peter_hooded_costume",
-        "venom",
-        "venom_spider"
+    "ultimate_spiderman",
+    "venom",
+    "peter_parker",
+    "peter_hooded",
+    "venom_spider",
+    "carnage",
+    "rhino",
+    "green_goblin",
+    "army_mary_jane",
+    "venarge",
+    "electro_suit",
+    "electro_nosuit",
+    "wolverine",
+    "beetle",
+    "shocker",
+    "silver_sable",
+    "johnny_storm",
 };
 
 enum class hero_status_e {
@@ -4817,7 +4824,7 @@ printf("Func name: %s\n", so->funcs[i]->name.to_string());
 printf("\n");
 }
 
-se->add_allocated_stuff(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
+se->add_allocated_stuff_for_debug_menu(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
 
 //printf("%08X\n", res);
 
@@ -4854,7 +4861,7 @@ BOOL install_redirects()
 
     //REDIRECT(0, sub_5952D0);
 
-    if constexpr (1)
+    if constexpr (0)
     {
         moved_entities_patch();
 
@@ -4940,7 +4947,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
         write_dword(hook.address, hook.new_value, hook.reason);
     }
 
-    script_lib_debug_menu_patch();
+  //  script_lib_debug_menu_patch();
 }
 
     return true;
@@ -4961,7 +4968,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
     ngl_patch();
 
     //standalone patches
-    if constexpr (1)
+    if constexpr (0)
     {
         slc_manager_patch();
     
@@ -4996,7 +5003,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
         us_simpleshader_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         sound_manager_patch();
 
@@ -5090,7 +5097,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
         script_access_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         combo_system_patch();
 
@@ -5191,7 +5198,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
         mash_info_struct_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         worldly_pack_slot_patch();
 
@@ -5210,7 +5217,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
         chuck_callbacks_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         os_file_patch();
 
@@ -5227,7 +5234,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
 
     animation_logic_system_patch();
 
-    if constexpr (1)
+    if constexpr (0)
     {
         interactable_interface_patch();
 
@@ -5238,7 +5245,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
         variant_interface_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         nalStreamInstance_patch();
 
@@ -5251,7 +5258,7 @@ if constexpr (DEBUG_MENU_REIMPL) {
         cut_scene_player_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         character_anim_controller_patch();
 
@@ -5439,9 +5446,9 @@ if constexpr (DEBUG_MENU_REIMPL) {
 #define ORIGINAL_DLL 0
 #if ORIGINAL_DLL
     {
-        if constexpr (0)
+        if constexpr (1)
         {
-            if constexpr (0) {
+            if constexpr (1) {
                 //EnableLog l{};
 
                 sp_log("Ints:");
