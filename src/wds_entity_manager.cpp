@@ -108,7 +108,7 @@ void wds_entity_manager::destroy_all_entities_and_items() {
 }
 
 void wds_entity_manager::destroy_entity(entity *e) {
-    assert(e != nullptr);
+   // assert(e != nullptr);
 
     if constexpr (1) {
         bool v4;

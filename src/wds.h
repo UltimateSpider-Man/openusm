@@ -56,7 +56,7 @@ struct world_dynamics_system {
     cached_special_effect field_1F0;
 
 
-private:
+
     entity *field_230[MAX_GAME_PLAYERS];
     camera *field_234[MAX_GAME_PLAYERS];
 

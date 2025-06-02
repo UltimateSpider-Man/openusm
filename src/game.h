@@ -13,6 +13,7 @@
 #include "vector3d.h"
 #include "fixedstring.h"
 
+
 #include <vector.hpp>
 
 struct game_settings;
@@ -38,6 +39,9 @@ enum class game_state {
 };
 
 struct game;
+
+
+
 
 //0x006063C0
 extern void game__setup_input_registrations(game *a1);
@@ -191,6 +195,8 @@ struct game {
     //0x00558100
     void advance_state_legal(Float a2);
 
+
+void render_bar_of_shame();
     //0x00545B00
     void pop_process();
 

@@ -90,6 +90,7 @@ VALIDATE_SIZE(world_dynamics_system, 0x400u);
 VALIDATE_SIZE((*world_dynamics_system::field_0), 0x3C);
 VALIDATE_OFFSET(world_dynamics_system, ent_mgr, 0x74);
 VALIDATE_OFFSET(world_dynamics_system, the_terrain, 0x1AC);
+VALIDATE_OFFSET(world_dynamics_system, field_230, 0x230);
 
 static constexpr auto ENTITIES_TAG = 0;
 static constexpr auto BOX_TRIGGERS_TAG = 6;
@@ -360,8 +361,14 @@ void manage_standing_for_all_physical_interfaces(Float a1) {
     CDECL_CALL(0x004F28B0, a1);
 }
 
+
+
+
+
 entity *world_dynamics_system::get_hero_ptr(int index)
 {
+    constexpr auto MAX_GAME_PLAYERS = 1;
+
     assert(index >= 0 && index <= MAX_GAME_PLAYERS);
 
     auto *result = this->field_230[index];
@@ -1374,7 +1381,7 @@ int world_dynamics_system::add_player(const mString &a2)
             if ( this->num_players == 0 )
             {
                 auto *v3 = a2.c_str();
-                g_game_ptr->load_hero_packfile(v3, false);
+                g_game_ptr->load_hero_packfile(v3, true);
             }
 
             auto *marker = this->field_230[0];

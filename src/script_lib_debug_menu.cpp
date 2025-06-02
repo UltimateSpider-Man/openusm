@@ -40,7 +40,7 @@ void vm_debug_menu_entry_garbage_collection_callback(script_executable *,
         auto *entry = bit_cast<debug_menu_entry *>(v2);
         
         // script_menu->remove_entry(entry);
-        remove_debug_menu_entry(entry);
+      //  remove_debug_menu_entry(entry);
     }
 }
 

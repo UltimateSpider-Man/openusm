@@ -12,6 +12,7 @@
 #include "terrain.h"
 #include "region.h"
 #include "ngl.h"
+#include "ngl_dx_core.h"
 #include "igofrontend.h"
 #include "femanager.h"
 #include "rumble_manager.h"
@@ -95,14 +96,16 @@ void create_debug_district_variants_menu(debug_menu *parent)
 
 void populate_gamefile_menu(debug_menu_entry *entry)
 {
-    auto &v1 = entry->text;
-    auto *v2 = create_menu(v1, handle_game_entry, 200);
+    auto& v1 = entry->text;
+    auto* v2 = create_menu(v1, handle_game_entry, 200);
+    debug_menu_entry v4;
+    debug_menu_entry* block3 = v4.alloc_block(v2, 4);
+    block3[0] = debug_menu_entry { v2 };
 
-    auto *v494 = v2;
+    auto* v494 = v2;
     entry->set_submenu(v2);
-    if ( g_game_ptr != nullptr )
-    {
-        auto *v493 = g_game_ptr->get_game_settings();
+    if (g_game_ptr != nullptr) {
+        auto* v493 = g_game_ptr->get_game_settings();
 
         auto v3 = debug_menu_entry(mString {"HERO_POINTS"});
         auto &v492 = v3;
@@ -595,15 +598,12 @@ void populate_gamefile_menu(debug_menu_entry *entry)
     }
 }
 
-void create_gamefile_menu(debug_menu *parent)
+void create_gamefile_menu(debug_menu* parent)
 {
-    assert(parent != nullptr);
-
-    auto v5 = debug_menu_entry(mString{"Saved Game Settings"});
-    parent->add_entry(&v5);
-
-    debug_menu_entry *entry = &parent->entries[parent->used_slots - 1];
-    populate_gamefile_menu(entry);
+    auto* game_file_menu = create_menu("Saved Game Settings");
+    auto* v2 = create_menu_entry(game_file_menu);
+    v2->set_game_flags_handler(populate_gamefile_menu);
+    parent->add_entry(v2);
 }
 
 void warp_handler(debug_menu_entry *entry)
@@ -707,18 +707,29 @@ void create_ngl_menu(debug_menu *parent)
     auto *v133 = v22;
     auto *v23 = create_menu_entry(v133);
 
-    parent->add_entry(v23);
-    if ( nglGetDebugFlagPtr("ShowPerfInfo") != nullptr ) {
-        auto *v24 = create_menu_entry(mString {"ShowPerfInfo"});
+   parent->add_entry(v23);
+      if ( nglGetDebugFlagPtr("ShowPerfBar") != nullptr ) {
+       auto *v22 = create_menu_entry(mString {"ShowPerfBar"});
 
-        auto v1 = nglGetDebugFlag("ShowPerfInfo");
-        v24->set_ival(v1);
-        v24->set_min_value(0.0);
-        v24->set_max_value(2.0);
-        v24->set_game_flags_handler(ngl_handler);
-        v24->set_render_cb(ngl_render_callback);
-        v133->add_entry(v24);
-    }
+       auto v0 = nglGetDebugFlag("ShowPerfBar");
+       v22->set_ival(v0);
+       v22->set_min_value(0.0);
+       v22->set_max_value(1.0);
+       v22->set_game_flags_handler(ngl_handler);
+       v22->set_render_cb(ngl_render_callback);
+       v133->add_entry(v22);
+   }
+   if ( nglGetDebugFlagPtr("ShowPerfInfo") != nullptr ) {
+       auto *v24 = create_menu_entry(mString {"ShowPerfInfo"});
+
+       auto v1 = nglGetDebugFlag("ShowPerfInfo");
+       v24->set_ival(v1);
+       v24->set_min_value(0.0);
+       v24->set_max_value(2.0);
+       v24->set_game_flags_handler(ngl_handler);
+       v24->set_render_cb(ngl_render_callback);
+       v133->add_entry(v24);
+   }
 
     if ( nglGetDebugFlagPtr("ScreenShot") != nullptr )
     {
@@ -997,7 +1008,8 @@ void create_debug_render_menu(debug_menu *parent)
     assert(parent != nullptr);
 
     auto *debug_render_menu = create_menu("Debug Render", debug_menu::sort_mode_t::ascending);
-
+    
+	create_ngl_menu(debug_render_menu);
     auto *v4 = create_menu_entry(debug_render_menu);
     parent->add_entry(v4);
 
@@ -1016,7 +1028,7 @@ void create_debug_render_menu(debug_menu *parent)
         debug_render_menu->add_entry(v5);
     }
 
-    create_ngl_menu(debug_render_menu);
+
 }
 
 std::string camera_render_callback(debug_menu_entry *a2)

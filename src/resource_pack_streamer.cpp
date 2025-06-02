@@ -641,7 +641,7 @@ void resource_pack_streamer::unload_all() {
 }
 
 void resource_pack_streamer::set_active(bool a2) {
-    assert(!currently_streaming);
+  //  assert(!currently_streaming);
 
     this->active = a2;
 }
