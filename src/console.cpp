@@ -709,11 +709,10 @@ void Console::render()
             v11 = "";
         }
 
-        auto v9 = mString{"> "} + this->current;
 
-        auto v8 = v9 + v11;
-
-        mString v22 = v8;
+        char buffer[256] = { '\0' };
+        sprintf_s(buffer, 256, "> %s%s", this->current, v11);
+        mString v22 { buffer };
 
         vector2di v2{10, (int) v23};
         render_console_text(v22, v2, font_color);
