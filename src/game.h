@@ -29,12 +29,22 @@ struct vector2di;
 struct resource_key;
 struct level_descriptor_t;
 
-enum class game_state {
-    LEGAL = 1,
-    WAIT_LINK = 4,
-    LOAD_LEVEL = 5,
-    RUNNING = 6,
-    PAUSED = 7,
+enum class game_state
+{
+    LEGAL = 1u,
+    SPLASH_SCREENS = 2u,
+    LOADING_SCREENS = 3u,
+    WAIT_LINK = 4u,
+    LOAD_LEVEL = 5u,
+    RUNNING = 6u,
+    PAUSED = 7u,
+    TAKE_SCREENSHOT = 8u,
+    SAVE_SCREENSHOT = 9u,
+    UNHANDLED_UNK10 = 10u,
+    PAUSE_AND_GO_NEXT_STATE = 11u,
+    GO_NEXT_STATE = 12u,
+    GO_NEXT_STATE2 = 13u,
+    POP_PROCESS = 14u,
 };
 
 struct game;
@@ -365,3 +375,6 @@ extern void system_idle();
 extern void game_packs_modified_callback(_std::vector<resource_key> &a1);
 
 extern void game_patch();
+
+
+
