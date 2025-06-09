@@ -2,7 +2,6 @@
 
 #include "mstring.h"
 #include "script_object.h"
-#include "script_object.h"
 #include "string_hash.h"
 #include "vm_executable.h"
 
@@ -108,9 +107,9 @@ void script_handler_helper(debug_menu_entry *a2)
         assert(exe != nullptr);
 
         if ( exe->get_parms_stacksize() == 4 ) {
-            a2->field_14->add_thread(exe, (const char *)&a2);
+            a2->field_14->add_thread_for_debug_menu(exe, (const char *)&a2);
         } else {
-            a2->field_14->add_thread(exe);
+            a2->field_14->add_thread_for_debug_menu(exe);
         }
 
         debug_menu::hide();
@@ -147,6 +146,7 @@ bool debug_menu_entry::set_script_handler(script_instance *inst, const mString &
 
     return result;
 }
+
 
 debug_menu *debug_menu_entry::remove_menu()
 {
