@@ -108,6 +108,7 @@ public:
         return name;
     }
 
+
     int get_constructor_parmsize();
 
     //0x005A0750
@@ -217,6 +218,18 @@ public:
 
     auto & get_name() const {
         return name;
+    }
+
+    vm_thread * add_thread_for_debug_menu(const vm_executable *a2)
+    {
+        vm_thread * (__fastcall *func)(void *, void *, const vm_executable *) = CAST(func, 0x005AAC20);
+        return func(this, nullptr, a2);
+    }
+
+    void add_thread_for_debug_menu(const vm_executable *a2, const char *a3)
+    {
+        void (__fastcall *func)(void *, void *, const vm_executable *, const char *) = CAST(func, 0x005AAD00);
+        func(this, nullptr, a2, a3);
     }
 
     script_object * get_parent() {
