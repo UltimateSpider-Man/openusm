@@ -2161,7 +2161,7 @@ matrix4x4 sub_4150E0(const matrix4x4 &a2)
 {
     TRACE("sub_4150E0");
 
-    sp_log("%s", a2.to_string());
+    // sp_log("%s", a2.to_string());
 
     if constexpr (0)
     {
@@ -2184,7 +2184,7 @@ matrix4x4 sub_4150E0(const matrix4x4 &a2)
 
         CDECL_CALL(0x004150E0, &result, &a2);
 
-        sp_log("%s", result.to_string());
+        // sp_log("%s", result.to_string());
 
         return result;
     }
