@@ -2756,7 +2756,9 @@ debug_menu* script_menu = nullptr;
 debug_menu* progression_menu = nullptr;
 debug_menu* level_select_menu = nullptr;
 debug_menu* dvars_menu  = nullptr;
-debug_menu* replay_menu  = nullptr;
+#ifdef TARGET_XBOX
+    debug_menu* replay_menu  = nullptr;
+#endif
 debug_menu* entity_variants_menu  = nullptr;
 
 debug_menu** all_menus[] = {
@@ -2767,7 +2769,9 @@ debug_menu** all_menus[] = {
     &progression_menu,
     &level_select_menu,
     &dvars_menu,
+#ifdef TARGET_XBOX
     &replay_menu,
+#endif
     &entity_variants_menu
 };
 
@@ -2852,6 +2856,9 @@ std::string getRealText(debug_menu_entry* entry) {
 void handle_debug_entry(debug_menu_entry* entry, custom_key_type) {
     current_menu = entry->m_value.p_menu;
 }
+
+// AI
+
 static ai::ai_core* debug_menu_ai_core = nullptr;
 
 static const char* TYPE_NAME_ARRAY[8]{
@@ -3077,6 +3084,8 @@ void ai_core_menu_handler(debug_menu_entry* a2)
         }
     }
 }
+
+
 #include "entity_base.h"
 void populate_ai_root(debug_menu_entry* arg0)
 {
@@ -3116,6 +3125,9 @@ void create_ai_root_menu(debug_menu* parent)
     parent->add_entry(&v5);
 }
 
+
+// Memory
+
 int g_mem_checkpoint_debug_0{ -1 };
 
 void set_memtrack_checkpoint(debug_menu_entry*)
@@ -3149,6 +3161,9 @@ void create_memory_menu(debug_menu* parent)
 
     slab_allocator::create_slab_debug_menu(memory_menu);
 }
+
+
+// Entity Animation 
 
 void entity_animation_handler(debug_menu_entry* entry)
 {
@@ -3239,9 +3254,10 @@ void create_entity_animation_menu(debug_menu* parent)
     parent->add_entry(&v5);
 }
 
+// Replays
+
+#ifdef TARGET_XBOX
 #include "rtdt_replay_mgr.h"
-
-
 bool sub_6694CA(rtdt_replay_mgr* instance)
 {
     g_game_ptr->enable_physics(false);
@@ -3293,6 +3309,7 @@ void create_replay_menu(debug_menu* parent)
     v2->set_game_flags_handler(populate_replay_menu);
     parent->add_entry(v2);
 }
+#endif
 
 
 // Entity Variants
@@ -3460,8 +3477,10 @@ void debug_menu::init() {
     create_ai_root_menu(root_menu);
     create_memory_menu(root_menu);
 
+#   ifdef TARGET_XBOX
+        create_replay_menu(root_menu);
+#   endif
 
-    create_replay_menu(root_menu);
     create_entity_variants_menu(root_menu);
 
 
@@ -3836,10 +3855,9 @@ void create_level_select_menu(debug_menu* level_select_menu)
     printf("num_descriptors = %d\n", arg0);
     for (auto i = 0; i < arg0; ++i)
     {
-        auto v6 = 25;
         auto* v1 = level_descriptors[i].field_0.to_string();
         string_hash v5{ v1 };
-        auto v11 = resource_key{ v5, resource_key_type(v6) };
+        auto v11 = resource_key{ v5, RESOURCE_KEY_TYPE_PACK };
         auto v17 = resource_manager::get_pack_file_stats(v11, nullptr, nullptr, nullptr);
         if (v17)
         {
@@ -3866,9 +3884,8 @@ void create_level_select_menu(debug_menu* level_select_menu)
     level_select_menu->add_entry(&v28);
     for (auto i = 0u; i < NUM_HEROES; ++i)
     {
-        auto v6 = 25;
         string_hash v5{ hero_list[i] };
-        auto v11 = resource_key{ v5, (resource_key_type)v6 };
+        auto v11 = resource_key{ v5, RESOURCE_KEY_TYPE_PACK };
         auto v30 = resource_manager::get_pack_file_stats(v11, nullptr, nullptr, nullptr);
         if (v30)
         {
@@ -3938,13 +3955,13 @@ void hero_entry_callback(debug_menu_entry*)
             auto v9 = v6->m_hero_type;
             switch (v9)
             {
-                case RUNNING:
+                case hero_type_enum::SPIDEY:
                     v17 = 0;
                     break;
-                case CRAWLING:
+                case hero_type_enum::VENOM:
                     v17 = 4;
                     break;
-                case SWINGING:
+                case hero_type_enum::PARKER:
                     v17 = 5;
                     break;
             }
