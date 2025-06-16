@@ -577,7 +577,7 @@ uint8_t *resource_directory::get_resource(const resource_key &resource_id,
 {
     TRACE("resource_directory::get_resource");
 
-    if constexpr (1)
+    if constexpr (0)
     {
         assert(resource_id.is_set());
         assert(resource_id.get_type() != RESOURCE_KEY_TYPE_NONE);

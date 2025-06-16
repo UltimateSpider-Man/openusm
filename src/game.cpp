@@ -781,7 +781,7 @@ void game::pop_process()
 {
     assert(process_stack.size() != 0);
 
-    if constexpr (1) {
+    if constexpr (0) {
         this->process_stack.pop_back();
     } else {
         auto v1 = this->process_stack.begin();
@@ -2272,7 +2272,7 @@ void game::load_new_level(const mString &a2, const vector3d &a3)
 
 void game::load_new_level(const mString &a1, int a2)
 {
-    if constexpr (1)
+    if constexpr (0)
     {
         this->_load_new_level(a1);
         this->m_hero_start_enabled = true;
@@ -2986,7 +2986,7 @@ void game::unload_current_level()
 {
     TRACE("game::unload_current_level");
 
-    if constexpr (1)
+    if constexpr (0)
     {
         mem_print_stats("unload_current_level() start");
 
