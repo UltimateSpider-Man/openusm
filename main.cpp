@@ -3742,6 +3742,7 @@ void populate_missions_menu(debug_menu* missions_menu)
     }
 }
 
+#include "game_level.h"
 #include "fe_health_widget.h"
 constexpr auto NUM_HEROES = 10u;
 
@@ -3768,7 +3769,7 @@ enum class hero_status_e {
 int hero_selected;
 int frames_to_skip = 2;
 
-struct level_descriptor_t
+struct level_descriptor_v2_t
 {
     fixedstring<32> field_0;
     fixedstring<64> field_20;
@@ -3783,7 +3784,7 @@ struct level_descriptor_t
     int field_8C;
 };
 
-// VALIDATE_SIZE(level_descriptor_t, 0x90);
+#include "game_process.h"
 
 level_descriptor_t* get_level_descriptors(int* arg0)
 {
@@ -3810,26 +3811,98 @@ level_descriptor_t* get_level_descriptors(int* arg0)
     return v11;
 }
 
+static int main_flow[] = { 5, 6, 14 };
+game_process mainflow_proc{ "main", main_flow, 3 };
+
 void level_select_handler(debug_menu_entry* entry)
 {
     auto* v1 = entry->text;
     mString v15{ v1 };
+
+    level_descriptor_t *desc = nullptr;
 
     int arg0;
     auto* v13 = get_level_descriptors(&arg0);
     for (auto i = 0; i < arg0; ++i)
     {
         auto* v2 = v15.c_str();
-        fixedstring<16> v6{ v2 };
+        fixedstring<4> v6{ v2 };
         if (v13[i].field_60 == v6)
         {
             auto* v3 = v13[i].field_0.to_string();
             v15 = { v3 };
+            desc = &v13[i];
             break;
         }
     }
 
-    g_game_ptr->load_new_level(v15, -1);
+    // g_game_ptr->unpause();
+    // close_debug();
+
+    if (desc != nullptr) {
+        // printf("v15 = %s\n", v15.c_str());
+        //g_game_ptr->field_163 = true;
+          void(__fastcall * poppr)(void) = bit_cast<decltype(poppr)>(0x00545B00);
+        app* a = var<app*>(0x009685D4);
+        // printf("game state = %d\n", (int)a->instance->m_game->get_cur_state());
+        // int main_flow[] = { 5, 6, 14 };
+        // game_process main_proc{ "main", main_flow, 3 };
+        // a->instance->m_game->push_process(main_proc);
+
+        // THISCALL(0x00514C70, a->m_game, &v15, -1);
+
+
+        //loading_a_level = false;                        // mark this before the others
+        //strcpy((char*)g_scene_name(), "shader_arena");         // copy the new one
+        //a->m_game->level.name_mission_table = mString{ "shader_arena" };        // <-- might not be necessary due to game_load_advance_state or whatever doing this
+        //a->m_game->flag.level_is_loaded = 0;            // locks us out..
+        // poppr();                                        // pop the current proc from stack
+        // g_game_ptr->unpause();                          // unpause
+        close_debug();                                  // hide just incase?
+
+        auto pGame = app::instance->m_game;
+        printf("current state = 0x%08X\n", pGame->get_cur_state());
+
+#if 1
+        auto loadLevel = [&](game* g, const char* level_name) -> void {
+#           if !defined(TARGET_XBOX) && !defined(TARGET_PS2)
+
+#               if 0
+
+                    static bool& loading_a_level = var<bool>(0x00960CB5);
+                    strcpy((char*)g_scene_name(), level_name);
+                    loading_a_level = false;
+                    g->flag.level_is_loaded = false;
+                    g->level.load_completed = false;
+                    g->process_stack.m_last->reset_index();
+
+#               else
+                    os_developer_options::instance->set_string(mString{ "SCENE_NAME" }, mString{ level_name });
+                    void* p_new_game = malloc(0x2C4u);
+                    if(p_new_game) {
+                        game* new_game = (game*)THISCALL(0x00557610, p_new_game);
+                        if (new_game) {
+                            app::instance->m_game = new_game;
+                            g_game_ptr = new_game;
+                        }
+                    }
+#               endif
+
+#           else
+                // ...
+#           endif
+        };
+        loadLevel(app::instance->m_game, "city_arena");
+
+
+
+        //game->process_stack.clear();
+        //game->push_process(mainflow_proc);
+        //printf("current state = 0x%08X\n", game->get_cur_state());
+#endif
+
+    }
+    
 }
 
 
@@ -4005,6 +4078,9 @@ void menu_setup(int game_state, int keyboard) {
         }
     }
 }
+
+
+// Devopts 
 
 #include "os_developer_options.h"
 #include "devopt.h"
@@ -4264,6 +4340,7 @@ uint8_t __fastcall slf__create_progression_menu_entry(script_library_class::func
     return true;
 }
 
+
 bool __fastcall slf__create_debug_menu_entry(script_library_class::function* func, void*, vm_stack* stack, void* unk)
 {
     stack->pop(4);
@@ -4282,7 +4359,6 @@ bool __fastcall slf__create_debug_menu_entry(script_library_class::function* fun
 
     script_instance* instance = stack->my_thread->inst;
     printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
-
     void* res = add_debug_menu_entry(script_menu, &entry);
 
     script_executable* se = stack->my_thread->ex->owner->parent;
@@ -4291,8 +4367,26 @@ bool __fastcall slf__create_debug_menu_entry(script_library_class::function* fun
         auto* so = se->script_objects[i];
         printf("Name of script_object = %s\n", so->name.to_string());
 
-        for (auto i = 0; i < so->total_funcs; ++i) {
-            printf("Func name: %s\n", so->funcs[i]->name.to_string());
+        auto* so_menu = create_menu(so->name.to_string(), debug_menu::sort_mode_t::ascending);
+        auto* so_entry = create_menu_entry(so->name.to_string());
+        so_entry->set_data(so);
+        so_entry->set_submenu(so_menu);
+        so_entry->set_game_flags_handler(nullptr);
+
+        script_menu->add_entry(so_entry);
+
+        for (auto j = 0; j < so->total_funcs; ++j) {
+            auto* fn = so->funcs[j];
+            printf("Func name: %s\n", fn->name.to_string());
+
+            debug_menu_entry fn_entry{ fn->name.to_string() };
+            script_instance* instance = stack->my_thread->inst;
+            fn_entry.set_script_handler(instance, { fn->name.to_string()});
+
+            fn_entry.set_data(nullptr);
+            fn_entry.set_submenu(nullptr);
+
+            add_debug_menu_entry(so_menu, &fn_entry);
         }
 
         printf("\n");

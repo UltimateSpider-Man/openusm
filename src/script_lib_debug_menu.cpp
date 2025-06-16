@@ -62,7 +62,7 @@ bool slf__create_debug_menu_entry__str__str__t::operator()(vm_stack &stack, [[ma
 {
     TRACE("slf__create_debug_menu_entry__str__str__t::operator()");
 
-    if constexpr (0)
+    if constexpr (1)
     {
         SLF_PARMS;
 
