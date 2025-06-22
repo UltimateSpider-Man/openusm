@@ -560,7 +560,7 @@ void parse_cmd(const char *str)
             } else if (strnicmp(i, "smoketest", strlen(i)) == 0) {
                 os_developer_options::instance->set_flag(75, true);
             } else if (strnicmp(i, "-entityids", strlen(i))) {
-                if (strlen(i) > 2 && strnicmp(i, "-f", 2u) == 0) {
+                if (strlen(i) > 20 && strnicmp(i, "-f", 20u) == 0) {
                     mString v13{i};
 
                     auto v2 = v13.find({2}, '=');
@@ -2278,6 +2278,7 @@ void GetDeviceStateHandleKeyboardInput(LPVOID lpvData) {
 }
 
 int debug_enabled = 0;
+int debug_disabled = 0;
 
 
 int get_menu_key_value(MenuKey key, int keyboard) {
@@ -2323,6 +2324,39 @@ int is_menu_key_pressed(MenuKey key, int keyboard) {
 
 int is_menu_key_clicked(MenuKey key, int keyboard) {
     return get_menu_key_value(key, keyboard);
+}
+
+void read_and_update_controller_key_button(LPDIJOYSTATE2 joy, int index, MenuKey key) {
+	int res = 0;
+	if (joy->rgbButtons[index]) {
+		++controllerKeys[key];
+	}
+	else {
+		controllerKeys[key] = 0;
+	}
+}
+
+
+void read_and_update_controller_key_dpad(LPDIJOYSTATE2 joy, int angle, MenuKey key) {
+	
+	if (joy->rgdwPOV[0] == 0xFFFFFFFF)
+		controllerKeys[key] = 0;
+	else
+		controllerKeys[key] = (joy->rgdwPOV[0] == angle) ? controllerKeys[key] + 1 : 0;
+}
+
+
+void GetDeviceStateHandleControllerInput(LPVOID lpvData) {
+	LPDIJOYSTATE2 joy = (decltype(joy)) lpvData;
+
+	read_and_update_controller_key_button(joy, 1, MENU_ACCEPT);
+	read_and_update_controller_key_button(joy, 2, MENU_BACK);
+        read_and_update_controller_key_button(joy, 11, MENU_TOGGLE);
+
+	read_and_update_controller_key_dpad(joy, 0, MENU_UP);
+	read_and_update_controller_key_dpad(joy, 9000, MENU_RIGHT);
+	read_and_update_controller_key_dpad(joy, 18000, MENU_DOWN);
+	read_and_update_controller_key_dpad(joy, 27000, MENU_LEFT);
 }
 
 DWORD modulo(int num, DWORD mod) {
@@ -2379,45 +2413,46 @@ void menu_go_up() {
 
 }
 
-void menu_input_handler(int keyboard, int SCROLL_SPEED) {
+void menu_input_handler(int keyboard, int SCROLL_SPEED)
+{
     if (is_menu_key_clicked(MENU_DOWN, keyboard)) {
 
         int key_val = get_menu_key_value(MENU_DOWN, keyboard);
         if (key_val == 1) {
             menu_go_down();
-        }
-        else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
+        } else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
             menu_go_down();
         }
-    }
-    else if (is_menu_key_clicked(MENU_UP, keyboard)) {
+    } else if (is_menu_key_clicked(MENU_UP, keyboard)) {
 
         int key_val = get_menu_key_value(MENU_UP, keyboard);
         if (key_val == 1) {
             menu_go_up();
-        }
-        else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
+        } else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
             menu_go_up();
         }
-    }
-    else if (is_menu_key_pressed(MENU_ACCEPT, keyboard))
-    {
+    } else if (is_menu_key_pressed(MENU_ACCEPT, keyboard)) {
         auto* entry = &current_menu->entries[current_menu->window_start + current_menu->cur_index];
         assert(entry != nullptr);
         entry->on_select(1.0);
 
-        //current_menu->handler(entry, ENTER);
-    }
-    else if (is_menu_key_pressed(MENU_BACK, keyboard)) {
+        // current_menu->handler(entry, ENTER);
+    } else if (is_menu_key_pressed(MENU_BACK, keyboard)) {
         current_menu->go_back();
-    }
-    else if (is_menu_key_pressed(MENU_LEFT, keyboard) || is_menu_key_pressed(MENU_RIGHT, keyboard)) {
-
+    } else if (is_menu_key_clicked(MENU_LEFT, keyboard)) { // Use is_menu_key_clicked here
         debug_menu_entry* cur = &current_menu->entries[current_menu->window_start + current_menu->cur_index];
-        if (is_menu_key_pressed(MENU_LEFT, keyboard)) {
+        int key_val = get_menu_key_value(MENU_LEFT, keyboard);
+        if (key_val == 1) {
+            cur->on_change(-1.0, false);
+        } else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
             cur->on_change(-1.0, false);
         }
-        else {
+    } else if (is_menu_key_clicked(MENU_RIGHT, keyboard)) { // Use is_menu_key_clicked here
+        debug_menu_entry* cur = &current_menu->entries[current_menu->window_start + current_menu->cur_index];
+        int key_val = get_menu_key_value(MENU_RIGHT, keyboard);
+        if (key_val == 1) {
+            cur->on_change(1.0, true);
+        } else if ((key_val >= SCROLL_SPEED) && (key_val % SCROLL_SPEED == 0)) {
             cur->on_change(1.0, true);
         }
     }
@@ -2426,7 +2461,6 @@ void menu_input_handler(int keyboard, int SCROLL_SPEED) {
     assert(highlighted->frame_advance_callback != nullptr);
     highlighted->frame_advance_callback(highlighted);
 }
-
 
 typedef int (__stdcall* GetDeviceState_ptr)(IDirectInputDevice8*, DWORD, LPVOID);
 GetDeviceState_ptr GetDeviceStateOriginal = nullptr;
@@ -2438,10 +2472,20 @@ HRESULT __stdcall GetDeviceStateHook(IDirectInputDevice8* self, DWORD cbData, LP
 	printf("cbData %d %d %d\n", cbData, sizeof(DIJOYSTATE), sizeof(DIJOYSTATE2));
 
 	//keyboard time babyyy
-    if (cbData == 256)
-    {
-        GetDeviceStateHandleKeyboardInput(lpvData);
-    }
+	//keyboard time babyyy
+	if (cbData == 256 || cbData == sizeof(DIJOYSTATE2)) {
+
+		
+		if (cbData == 256)
+			GetDeviceStateHandleKeyboardInput(lpvData);
+		else if (cbData == sizeof(DIJOYSTATE2))
+			GetDeviceStateHandleControllerInput(lpvData);
+
+		int game_states = 0;
+		if (g_game_ptr)
+        {
+			//game_states = game_get_cur_state(g_game_ptr);
+        }
      
     auto g_state = []() -> game_state {
         if (g_game_ptr != nullptr)
@@ -2595,7 +2639,7 @@ HRESULT __stdcall GetDeviceStateHook(IDirectInputDevice8* self, DWORD cbData, LP
 	}
 
 	//printf("Device State called %08X %d\n", this, cbData);
-
+}
 	return res;
 }
 
@@ -2712,7 +2756,7 @@ void aeps_RenderAll() {
     uint8_t green = color_ramp_function(ratio, period, cur_time);
     uint8_t blue = color_ramp_function(ratio, period, cur_time - 2 * period);
 
-    nglListAddString(*nglSysFont, 0.1f, 0.2f, 0.2f, nglColor(red, green, blue, 255), 1.f, 1.f, "Krystalgamer's Debug menu");
+    nglListAddString(*nglSysFont, 0.1f, 0.2f, 0.2f, nglColor(red, green, blue, 255), 1.f, 1.f, "");
 
     cur_time = (cur_time + 1) % duration;
 
@@ -2751,28 +2795,17 @@ typedef struct _list {
 
 #include "levelmenu.h"
 debug_menu* game_menu = nullptr;
-debug_menu* missions_menu = nullptr;
 debug_menu* script_menu = nullptr;
 debug_menu* progression_menu = nullptr;
-debug_menu* level_select_menu = nullptr;
-debug_menu* dvars_menu  = nullptr;
-#ifdef TARGET_XBOX
-    debug_menu* replay_menu  = nullptr;
-#endif
-debug_menu* entity_variants_menu  = nullptr;
+
+
 
 debug_menu** all_menus[] = {
     &debug_menu::root_menu,
     &game_menu,
-    &missions_menu,
     &script_menu,
     &progression_menu,
-    &level_select_menu,
-    &dvars_menu,
-#ifdef TARGET_XBOX
-    &replay_menu,
-#endif
-    &entity_variants_menu
+
 };
 
 void remove_debug_menu_entry(debug_menu_entry* entry) {
@@ -2856,9 +2889,6 @@ std::string getRealText(debug_menu_entry* entry) {
 void handle_debug_entry(debug_menu_entry* entry, custom_key_type) {
     current_menu = entry->m_value.p_menu;
 }
-
-// AI
-
 static ai::ai_core* debug_menu_ai_core = nullptr;
 
 static const char* TYPE_NAME_ARRAY[8]{
@@ -3084,8 +3114,6 @@ void ai_core_menu_handler(debug_menu_entry* a2)
         }
     }
 }
-
-
 #include "entity_base.h"
 void populate_ai_root(debug_menu_entry* arg0)
 {
@@ -3125,9 +3153,6 @@ void create_ai_root_menu(debug_menu* parent)
     parent->add_entry(&v5);
 }
 
-
-// Memory
-
 int g_mem_checkpoint_debug_0{ -1 };
 
 void set_memtrack_checkpoint(debug_menu_entry*)
@@ -3161,9 +3186,6 @@ void create_memory_menu(debug_menu* parent)
 
     slab_allocator::create_slab_debug_menu(memory_menu);
 }
-
-
-// Entity Animation 
 
 void entity_animation_handler(debug_menu_entry* entry)
 {
@@ -3254,10 +3276,9 @@ void create_entity_animation_menu(debug_menu* parent)
     parent->add_entry(&v5);
 }
 
-// Replays
-
-#ifdef TARGET_XBOX
 #include "rtdt_replay_mgr.h"
+
+
 bool sub_6694CA(rtdt_replay_mgr* instance)
 {
     g_game_ptr->enable_physics(false);
@@ -3291,7 +3312,7 @@ void replay_handler(debug_menu_entry* entry)
 void populate_replay_menu(debug_menu_entry* entry)
 {
 
-    auto* head_menu = create_menu("Replay", debug_menu::sort_mode_t::ascending);
+    auto head_menu = create_menu("Replay", debug_menu::sort_mode_t::ascending);
     entry->set_submenu(head_menu);
 
     mString v25{ "Start" };
@@ -3304,12 +3325,11 @@ void populate_replay_menu(debug_menu_entry* entry)
 
 void create_replay_menu(debug_menu* parent)
 {
-    replay_menu = create_menu("Replay");
+    auto* replay_menu = create_menu("Replay");
     auto* v2 = create_menu_entry(replay_menu);
     v2->set_game_flags_handler(populate_replay_menu);
     parent->add_entry(v2);
 }
-#endif
 
 
 // Entity Variants
@@ -3364,8 +3384,8 @@ void populate_entity_variants_menu(debug_menu_entry* entry) {
 }
 
 void create_entity_variants_menu(debug_menu* parent) {
-    auto menu = create_menu("Entity Variants");
-    auto entry = create_menu_entry(menu);
+    auto* entity_variants_menu = create_menu("Entity Variants");
+    auto* entry = create_menu_entry(entity_variants_menu);
     entry->set_submenu(nullptr);
     entry->set_game_flags_handler(populate_entity_variants_menu);
     parent->add_entry(entry);
@@ -3439,649 +3459,241 @@ void populate_dvars(debug_menu_entry* entry)
 
 void create_dvars_menu(debug_menu* arg0)
 {
-    dvars_menu = create_menu("Dvars");
+    auto* dvars_menu = create_menu("Dvars");
     auto* v2 = create_menu_entry(dvars_menu);
     v2->set_game_flags_handler(populate_dvars);
     arg0->add_entry(v2);
 }
-#pragma endregion
-
-// Debug Menu
-// ----------------------------------------------------------------------------------
-
-void debug_menu::init() {
-    root_menu = create_menu("Debug Menu", handle_debug_entry, 10);
-    game_menu = create_menu("Game", handle_game_entry, 300);
-    missions_menu = create_menu("Missions");
-    script_menu = create_menu("Script");
-    progression_menu = create_menu("Progression");
-    level_select_menu = create_menu("Level Select");
-
-    debug_menu_entry game_entry{ game_menu };
-    debug_menu_entry missions_entry{ missions_menu };
-    debug_menu_entry script_entry{ script_menu };
-    debug_menu_entry progression_entry{ progression_menu };
-    debug_menu_entry level_select_entry{ level_select_menu };
-    
-    create_entity_animation_menu(root_menu);
-    create_camera_menu_items(root_menu);
-    create_dvars_menu(root_menu);
-    create_warp_menu(root_menu);
-    add_debug_menu_entry(root_menu, &game_entry);
-    add_debug_menu_entry(root_menu, &missions_entry);
-    create_debug_district_variants_menu(root_menu);
-    add_debug_menu_entry(root_menu, &script_entry);
-    add_debug_menu_entry(root_menu, &progression_entry);
-    add_debug_menu_entry(root_menu, &level_select_entry);
-    create_debug_render_menu(root_menu);
-    create_ai_root_menu(root_menu);
-    create_memory_menu(root_menu);
-
-#   ifdef TARGET_XBOX
-        create_replay_menu(root_menu);
-#   endif
-
-    create_entity_variants_menu(root_menu);
-
-
-    /*
-    for (int i = 0; i < 5; i++) {
-
-        debug_menu_entry asdf;
-        sprintf(asdf.text, "entry %d", i);
-        printf("AQUI %s\n", asdf.text);
-
-        add_debug_menu_entry(debug_menu::root_menu, &asdf);
-    }
-    add_debug_menu_entry(debug_menu::root_menu, &teste);
-    */
-}
-#ifdef _WIN32
-#define _USE_MATH_DEFINES
-#define NOMINMAX
-#endif
-
-void render_current_debug_menu() {
-    auto UP_ARROW{ " ^ ^ ^ " };
-    auto DOWN_ARROW{ " v v v " };
-
-    int num_elements = std::min((DWORD)MAX_ELEMENTS_PAGE, current_menu->used_slots - current_menu->window_start);
-    int needs_down_arrow = ((current_menu->window_start + MAX_ELEMENTS_PAGE) < current_menu->used_slots) ? 1 : 0;
-
-    int cur_width, cur_height;
-    int debug_width = 0;
-    int debug_height = 0;
-
-    auto get_and_update = [&](auto* x) {\
-        getStringDimensions(x, &cur_width, &cur_height); \
-        debug_height += cur_height; \
-        debug_width = std::max(debug_width, cur_width); \
-        };
-
-    //printf("new size: %s %d %d (%d %d)\n", x, debug_width, debug_height, cur_width, cur_height);
-
-    get_and_update(current_menu->title);
-    get_and_update(UP_ARROW);
-
-    int total_elements_page = needs_down_arrow ? MAX_ELEMENTS_PAGE : current_menu->used_slots - current_menu->window_start;
-
-    for (int i = 0; i < total_elements_page; ++i) {
-        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
-        auto cur = getRealText(entry);
-        get_and_update(cur.c_str());
-    }
-
-    if (needs_down_arrow) {
-        get_and_update(DOWN_ARROW);
-    }
-
-    nglQuad quad;
-
-    int menu_x_start = 20, menu_y_start = 40;
-    int menu_x_pad = 24, menu_y_pad = 18;
-
-    nglInitQuad(&quad);
-    nglSetQuadRect(&quad, menu_x_start, menu_y_start, menu_x_start + debug_width + menu_x_pad, menu_y_start + debug_height + menu_y_pad);
-    nglSetQuadColor(&quad, 0xBE0A0A0A);
-    nglSetQuadZ(&quad, 0.5f);
-    nglListAddQuad(&quad);
-    
-    int white_color = nglColor(255, 255, 255, 255);
-    int yellow_color = nglColor(255, 255, 0, 255);
-    int green_color = nglColor(0, 255, 0, 255);
-    int pink_color = nglColor(255, 0, 255, 255);
-
-    int render_height = menu_y_start;
-    render_height += 12;
-    int render_x = menu_x_start;
-    render_x += 8;
-    
-    nglListAddString(nglSysFont(), render_x, render_height, 0.2f, green_color, 1.f, 1.f, current_menu->title);
-    render_height += getStringHeight(current_menu->title);
-
-    if (current_menu->window_start) {
-        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, UP_ARROW);
-    }
-
-    render_height += getStringHeight(UP_ARROW);
-
-    for (int i = 0; i < total_elements_page; i++) {
-
-        int current_color = current_menu->cur_index == i ? yellow_color : white_color;
-
-        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
-        auto cur = getRealText(entry);
-        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, current_color, 1.f, 1.f, cur.c_str());
-        render_height += getStringHeight(cur.c_str());
-    }
-
-    if (needs_down_arrow) {
-        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, DOWN_ARROW);
-        render_height += getStringHeight(DOWN_ARROW);
-    }
-}
-
-void debug_nglListEndScene_hook() {
-    g_console->render();
-
-    if (debug_enabled) 
-        render_current_debug_menu();
-
-    nglListEndScene();
-}
-
-void close_debug() {
-    debug_enabled = 0;
-    g_game_ptr->unpause();
-}
-
 
 // Missions
 // ----------------------------------------------------------------------------------
-
-struct mission_t
-{
+struct mission_t {
     std::string field_0;
-    const char* field_C;
-    int field_10;
+    const char *field_C;
+    int m_district_id;
     int field_14;
 };
 
 std::vector<mission_t> menu_missions;
 
-void mission_unload_handler(debug_menu_entry* a1)
+void mission_unload_handler(debug_menu_entry *)
 {
-    auto* v1 = mission_manager::s_inst;
+    auto *v1 = mission_manager::s_inst;
     v1->prepare_unload_script();
-
-    close_debug();
+    debug_menu::hide();
 }
 
-void mission_select_handler(debug_menu_entry* entry)
+void mission_select_handler(debug_menu_entry *entry)
 {
-    auto v1 = (int)entry->data1;
-    auto v7 = &menu_missions.at(v1);
-    auto v6 = v7->field_C;
-    auto v5 = v7->field_14;
-    auto* v4 = v7->field_0.c_str();
-    auto v3 = v7->field_10;
-    auto* v2 = mission_manager::s_inst;
+    auto v1 = entry->m_id;
+    const auto &v7 = menu_missions[v1];
+    auto v6 = v7.field_C;
+    auto v5 = v7.field_14;
+    auto *v4 = v7.field_0.c_str();
+    auto v3 = v7.m_district_id;
+    auto *v2 = mission_manager::s_inst;
     v2->force_mission(v3, v4, v5, v6);
-    close_debug();
+    debug_menu::hide();
 }
+
 typedef int (*resource_manager_can_reload_amalgapak_ptr)(void);
 resource_manager_can_reload_amalgapak_ptr resource_manager_can_reload_amalgapak = (resource_manager_can_reload_amalgapak_ptr)0x0053DE90;
 
 typedef void (*resource_manager_reload_amalgapak_ptr)(void);
 resource_manager_reload_amalgapak_ptr resource_manager_reload_amalgapak = (resource_manager_reload_amalgapak_ptr)0x0054C2E0;
 
-void create_game_flags_menu(debug_menu* parent);
-
-void populate_missions_menu(debug_menu* missions_menu)
+void populate_missions_menu(debug_menu_entry *entry)
 {
-    if (missions_menu->used_slots == 0)
+    menu_missions = {};
+    if ( resource_manager_can_reload_amalgapak() )
     {
-        menu_missions = {};
-        if (resource_manager_can_reload_amalgapak())
+        resource_manager_can_reload_amalgapak();
+    }
+
+    auto *head_menu = create_menu("Missions", debug_menu::sort_mode_t::ascending);
+    entry->set_submenu(head_menu);
+	debug_menu_entry v4;
+   debug_menu_entry* block1 = v4.alloc_block(head_menu, 4);
+   block1[0] = debug_menu_entry{ head_menu };
+
+    auto *mission_unload_entry = create_menu_entry(mString{"UNLOAD CURRENT MISSION"});
+
+    mission_unload_entry->set_game_flags_handler(mission_unload_handler);
+    head_menu->add_entry(mission_unload_entry);
+
+    auto *v2 = mission_manager::s_inst;
+    auto v58 = v2->get_district_table_count();
+    for ( auto i = -1; i < v58; ++i )
+    {
+        fixedstring<8> v53 {};
+        int district_id;
+        mission_table_container *table = nullptr;
+        if ( i == -1 )
         {
-            resource_manager_reload_amalgapak();
+            table = v2->get_global_table();
+            v53 = fixedstring<8> {"global"};
+            district_id = 0;
+        }
+        else
+        {
+            table = v2->get_district_table(i);
+            auto *reg = table->get_region();
+            v53 = reg->get_name();
+
+            district_id = reg->get_district_id();
+
+            auto *v25 = create_menu(v53.to_string(), debug_menu::sort_mode_t::ascending);
+   debug_menu_entry v4;
+   debug_menu_entry* block = v4.alloc_block(v25, 4);
+   block[0] = debug_menu_entry{ v25 };
+            auto *v26 = create_menu_entry(v25);
+
+            head_menu->add_entry(v26);
         }
 
-        auto* head_menu = missions_menu;
+        _std::vector<mission_table_container::script_info> script_infos;
 
-        debug_menu_entry mission_unload_entry{ "UNLOAD CURRENT MISSION" };
-
-        mission_unload_entry.set_game_flags_handler(mission_unload_handler);
-        add_debug_menu_entry(head_menu, &mission_unload_entry);
-
-        mission_manager* v2 = mission_manager::s_inst;
-        int v58 = v2->m_district_table_count;
-        for (int i = -1; i < v58; ++i)
+        if ( table != nullptr )
         {
-            fixedstring<32> v53{};
-            int v52;
-            mission_table_container* table = nullptr;
-            if (i == -1)
+            auto res = table->append_script_info(&script_infos);
+        //    assert(res);
+        }
+
+        for ( auto &info : script_infos)
+        {
+            auto v50 = menu_missions.size();
+            const auto v19 = std::string {"pk_"} + info.field_0;
+            auto *v11 = v19.c_str();
+            auto key = create_resource_key_from_path(v11, RESOURCE_KEY_TYPE_PACK);
+            if ( resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr) )
             {
-                table = v2->m_global_table_container;
-                fixedstring<32> a1{ "global" };
-                v53 = a1;
-                v52 = 0;
+                mission_t mission {};
+                mission.field_0 = info.field_0;
+                mission.m_district_id = district_id;
+                mission.field_14 = info.field_8;
+
+                mission.field_C = info.field_4->get_script_data_name();
+                menu_missions.push_back(mission);
+
+                mString v47{};
+                if ( mission.field_C != nullptr )
+                {
+                    auto *v17 = mission.field_C;
+                    auto *v14 = mission.field_0.c_str();
+                    v47 = mString {0, "%s (%s)", v14, v17};
+                }
+                else
+                {
+                    auto v18 = mission.field_14;
+                    auto *v15 = mission.field_0.c_str();
+                    v47 = mString {0, "%s (%d)", v15, v18};
+                }
+
+                auto *v46 = create_menu_entry(v47);
+                v46->set_id(v50);
+                v46->set_game_flags_handler(mission_select_handler);
+                head_menu->add_entry(v46);
             }
-            else
-            {
-                table = v2->m_district_table_containers[i];
-                auto* reg = table->field_44;
-                auto& v6 = reg->get_name();
-                v53 = v6.to_string();
+        }
+    }
+}
 
-                auto v52 = reg->get_district_id();
 
-                auto* v25 = create_menu(v53.to_string(), nullptr, 10);
+void _populate_missions()
+{
+    auto handle_table = [](mission_table_container *table, int district_id) -> void
+    {
 
-                debug_menu_entry v26{ v25 };
+        _std::vector<mission_table_container::script_info> script_infos{};
 
-                add_debug_menu_entry(head_menu, &v26);
-            }
+        if ( table != nullptr )
+        {
+            table->append_script_info(&script_infos);
+        }
 
-            _std::vector<mission_table_container::script_info> script_infos;
-
-            if (table != nullptr)
-            {
-                table->append_script_info(&script_infos);
-            }
-
-            for (auto& info : script_infos)
-            {
-                auto v50 = menu_missions.size();
+        for ( auto &info : script_infos )
+        {
                 std::string a2{ "pk_" };
                 auto v19 = a2 + info.field_0;
                 auto* v11 = v19.c_str();
-                auto key = create_resource_key_from_path(v11, RESOURCE_KEY_TYPE_PACK);
-                if (resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr))
-                {
-                    mission_t mission{};
-                    mission.field_0 = info.field_0;
-                    mission.field_10 = v52;
-                    mission.field_14 = info.field_8;
-
-                    mission.field_C = info.field_4->get_script_data_name();
-                    menu_missions.push_back(mission);
-
-                    std::string v47{};
-
-                    char buff[1024];
-                    if (mission.field_C != nullptr)
-                    {
-                        auto* v17 = mission.field_C;
-                        auto* v14 = mission.field_0.c_str();
-
-                        snprintf(buff, sizeof(buff), "%s (%s)", v14, v17);
-                        v47 = buff;
-                    }
-                    else
-                    {
-                        auto v18 = mission.field_14;
-                        auto* v15 = mission.field_0.c_str();
-
-                        snprintf(buff, sizeof(buff), "%s (%d)", v15, v18);
-                        v47 = buff;
-                    }
-
-                    debug_menu_entry v27{ v47.c_str() };
-
-                    //v27->set_id(v50);
-                    v27.data1 = (void*)v50;
-
-                    v27.set_game_flags_handler(mission_select_handler);
-                    add_debug_menu_entry(head_menu, &v27);
-                }
-            }
-        }
-
-    }
-}
-
-#include "game_level.h"
-#include "fe_health_widget.h"
-constexpr auto NUM_HEROES = 10u;
-
-const char* hero_list[NUM_HEROES] = {
-        "ultimate_spiderman",
-        "arachno_man_costume",
-        "usm_wrestling_costume",
-        "usm_blacksuit_costume",
-        "peter_parker",
-        "peter_parker_costume",
-        "peter_hooded",
-        "peter_hooded_costume",
-        "venom",
-        "venom_spider"
-};
-
-enum class hero_status_e {
-    UNDEFINED = 0,
-    REMOVE_PLAYER = 1,
-    ADD_PLAYER = 2,
-    CHANGE_HEALTH_TYPE = 3,
-} hero_status;
-
-int hero_selected;
-int frames_to_skip = 2;
-
-struct level_descriptor_v2_t
-{
-    fixedstring<32> field_0;
-    fixedstring<64> field_20;
-    fixedstring<16> field_60;
-    int field_70;
-    int field_74;
-    int field_78;
-    int field_7C;
-    int field_80;
-    int field_84;
-    int field_88;
-    int field_8C;
-};
-
-#include "game_process.h"
-
-level_descriptor_t* get_level_descriptors(int* arg0)
-{
-    auto* game_partition = resource_manager::get_partition_pointer(resource_partition_enum(0));
-    assert(game_partition != nullptr);
-
-    assert(game_partition->get_pack_slots().size() == 1);
-
-    auto& v2 = game_partition->get_pack_slots();
-    auto* game_slot = v2.front();
-    assert(game_slot != nullptr);
-
-    auto v6 = 9;
-    string_hash v5{ "level" };
-    resource_key a1{ v5, (resource_key_type)v6 };
-    int a2 = 0;
-    auto* v11 = (level_descriptor_t*)game_slot->get_resource(a1, &a2, nullptr);
-
-    if (arg0 != nullptr)
-    {
-        *arg0 = a2 / sizeof(level_descriptor_t);
-    }
-
-    return v11;
-}
-
-static int main_flow[] = { 5, 6, 14 };
-game_process mainflow_proc{ "main", main_flow, 3 };
-
-void level_select_handler(debug_menu_entry* entry)
-{
-    auto* v1 = entry->text;
-    mString v15{ v1 };
-
-    level_descriptor_t *desc = nullptr;
-
-    int arg0;
-    auto* v13 = get_level_descriptors(&arg0);
-    for (auto i = 0; i < arg0; ++i)
-    {
-        auto* v2 = v15.c_str();
-        fixedstring<4> v6{ v2 };
-        if (v13[i].field_60 == v6)
-        {
-            auto* v3 = v13[i].field_0.to_string();
-            v15 = { v3 };
-            desc = &v13[i];
-            break;
-        }
-    }
-
-    // g_game_ptr->unpause();
-    // close_debug();
-
-    if (desc != nullptr) {
-        // printf("v15 = %s\n", v15.c_str());
-        //g_game_ptr->field_163 = true;
-          void(__fastcall * poppr)(void) = bit_cast<decltype(poppr)>(0x00545B00);
-        app* a = var<app*>(0x009685D4);
-        // printf("game state = %d\n", (int)a->instance->m_game->get_cur_state());
-        // int main_flow[] = { 5, 6, 14 };
-        // game_process main_proc{ "main", main_flow, 3 };
-        // a->instance->m_game->push_process(main_proc);
-
-        // THISCALL(0x00514C70, a->m_game, &v15, -1);
-
-
-        //loading_a_level = false;                        // mark this before the others
-        //strcpy((char*)g_scene_name(), "shader_arena");         // copy the new one
-        //a->m_game->level.name_mission_table = mString{ "shader_arena" };        // <-- might not be necessary due to game_load_advance_state or whatever doing this
-        //a->m_game->flag.level_is_loaded = 0;            // locks us out..
-        // poppr();                                        // pop the current proc from stack
-        // g_game_ptr->unpause();                          // unpause
-        close_debug();                                  // hide just incase?
-
-        auto pGame = app::instance->m_game;
-        printf("current state = 0x%08X\n", pGame->get_cur_state());
-
-#if 1
-        auto loadLevel = [&](game* g, const char* level_name) -> void {
-#           if !defined(TARGET_XBOX) && !defined(TARGET_PS2)
-
-#               if 0
-
-                    static bool& loading_a_level = var<bool>(0x00960CB5);
-                    strcpy((char*)g_scene_name(), level_name);
-                    loading_a_level = false;
-                    g->flag.level_is_loaded = false;
-                    g->level.load_completed = false;
-                    g->process_stack.m_last->reset_index();
-
-#               else
-                    os_developer_options::instance->set_string(mString{ "SCENE_NAME" }, mString{ level_name });
-                    void* p_new_game = malloc(0x2C4u);
-                    if(p_new_game) {
-                        game* new_game = (game*)THISCALL(0x00557610, p_new_game);
-                        if (new_game) {
-                            app::instance->m_game = new_game;
-                            g_game_ptr = new_game;
-                        }
-                    }
-#               endif
-
-#           else
-                // ...
-#           endif
-        };
-        loadLevel(app::instance->m_game, "city_arena");
-
-
-
-        //game->process_stack.clear();
-        //game->push_process(mainflow_proc);
-        //printf("current state = 0x%08X\n", game->get_cur_state());
-#endif
-
-    }
-    
-}
-
-
-void reboot_handler(debug_menu_entry* a1)
-{
-}
-
-void handle_hero_select_menu(debug_menu_entry* entry, custom_key_type)
-{
-    entry->m_game_flags_handler(entry);
-}
-
-void hero_entry_callback(debug_menu_entry*);
-
-void hero_toggle_handler(debug_menu_entry* entry);
-
-void create_level_select_menu(debug_menu* level_select_menu)
-{
-    //assert(debug_menu::root_menu != nullptr);
-
-    int arg0;
-    auto* level_descriptors = get_level_descriptors(&arg0);
-    printf("num_descriptors = %d\n", arg0);
-    for (auto i = 0; i < arg0; ++i)
-    {
-        auto* v1 = level_descriptors[i].field_0.to_string();
-        string_hash v5{ v1 };
-        auto v11 = resource_key{ v5, RESOURCE_KEY_TYPE_PACK };
-        auto v17 = resource_manager::get_pack_file_stats(v11, nullptr, nullptr, nullptr);
-        if (v17)
-        {
-            mString v22{ level_descriptors[i].field_60.to_string() };
-            debug_menu_entry v39{ v22.c_str() };
-
-            v39.set_game_flags_handler(level_select_handler);
-            v39.m_id = i;
-            level_select_menu->add_entry(&v39);
-        }
-    }
-
-    mString v25{ "-- REBOOT --" };
-    debug_menu_entry v38{ v25.c_str() };
-
-    v38.set_game_flags_handler(reboot_handler);
-
-    level_select_menu->add_entry(&v38);
-
-    static debug_menu* hero_select_menu = create_menu("Hero Select");
-
-    debug_menu_entry v28{ hero_select_menu };
-
-    level_select_menu->add_entry(&v28);
-    for (auto i = 0u; i < NUM_HEROES; ++i)
-    {
-        string_hash v5{ hero_list[i] };
-        auto v11 = resource_key{ v5, RESOURCE_KEY_TYPE_PACK };
-        auto v30 = resource_manager::get_pack_file_stats(v11, nullptr, nullptr, nullptr);
-        if (v30)
-        {
-            mString v35{ hero_list[i] };
-
-            debug_menu_entry v37{ v35.c_str() };
-
-            v37.set_game_flags_handler(hero_toggle_handler);
-            v37.m_id = i;
-            v37.set_frame_advance_cb(hero_entry_callback);
-            hero_select_menu->add_entry(&v37);
-        }
-    }
-}
-
-void hero_toggle_handler(debug_menu_entry* entry)
-{
-    printf("hero_toggle_handler\n");
-    assert(entry->get_id() < NUM_HEROES);
-    hero_selected = entry->get_id();
-    hero_status = hero_status_e::REMOVE_PLAYER;
-}
-
-void hero_entry_callback(debug_menu_entry*)
-{
-    printf("hero_entry_callback: hero_status = %d\n", hero_status);
-
-    auto v18 = g_world_ptr->num_players;
-    switch (hero_status)
-    {
-    case hero_status_e::REMOVE_PLAYER:
-    {
-        g_world_ptr->remove_player(v18 - 1);
-        hero_status = hero_status_e::ADD_PLAYER;
-        frames_to_skip = 2;
-        g_game_ptr->enable_marky_cam(true, true, -1000.0, 0.0);
-        break;
-    }
-    case hero_status_e::ADD_PLAYER:
-    {
-        auto v1 = frames_to_skip--;
-        if (v1 <= 0)
-        {
-            assert(hero_selected > -1 && hero_selected < NUM_HEROES);
-
-            [[maybe_unused]] auto v2 = g_world_ptr->add_player(mString{ hero_list[hero_selected] });
-
-            /*
-            auto v10 = v2 <= v18;
-
-            assert(v10 && "Cannot add another_player");
-            */
-
-            g_game_ptr->enable_marky_cam(false, true, -1000.0, 0.0);
-            frames_to_skip = 2;
-            hero_status = hero_status_e::CHANGE_HEALTH_TYPE;
-        }
-        break;
-    }
-    case hero_status_e::CHANGE_HEALTH_TYPE: {
-        auto v3 = frames_to_skip--;
-        if (v3 <= 0)
-        {
-            auto v17 = 0;
-            auto* v5 = (actor*)g_world_ptr->get_hero_ptr(0);
-            auto* v6 = v5->get_player_controller();
-            auto v9 = v6->m_hero_type;
-            switch (v9)
+            auto key = create_resource_key_from_path(v11, RESOURCE_KEY_TYPE_PACK);
+            if ( resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr) )
             {
-                case hero_type_enum::SPIDEY:
-                    v17 = 0;
-                    break;
-                case hero_type_enum::VENOM:
-                    v17 = 4;
-                    break;
-                case hero_type_enum::PARKER:
-                    v17 = 5;
-                    break;
+                mission_t mission{};
+                mission.field_0 = info.field_0;
+                mission.m_district_id = district_id;
+                mission.field_14 = info.field_8;
+
+                mission.field_C = info.field_4->get_script_data_name();
+                menu_missions.push_back(mission);
+
+                auto v47 = [](mission_t &mission) -> mString {
+                    if ( mission.field_C != nullptr )
+                    {
+                        auto *v17 = mission.field_C;
+                        auto *v14 = mission.field_0.c_str();
+                        mString str{0, "%s (%s)", v14, v17};
+                        return str;
+                    }
+
+                    auto v18 = mission.field_14;
+                    auto *v15 = mission.field_0.c_str();
+                    mString str{0, "%s (%d)", v15, v18};
+                    return str;
+
+                }(mission);
+
+                sp_log(v47.c_str());
             }
-
-            auto* v7 = g_world_ptr->get_hero_ptr(0);
-            auto v8 = v7->my_handle;
-            g_femanager.IGO->hero_health->SetType(v17, v8.field_0);
-            g_femanager.IGO->hero_health->SetShown(true);
-            close_debug();
-            hero_status = hero_status_e::UNDEFINED;
         }
-        break;
+    };
+
+    auto *v2 = mission_manager::s_inst;
+    auto count = v2->get_district_table_count();
+    sp_log("%s %d", "table_count = ", count);
+
+    {
+        auto *v3 = mission_manager::s_inst;
+        auto *table = v3->get_global_table();
+
+        handle_table(table, 0);
     }
-    default:
-        break;
-    }
-}
 
-void menu_setup(int game_state, int keyboard) {
 
-    //debug menu stuff
-    if (is_menu_key_pressed(MENU_TOGGLE, keyboard) && (game_state == 6 || game_state == 7)) {
+    std::for_each(&v2->m_district_table_containers[0], &v2->m_district_table_containers[0] + count, [&handle_table](auto *table) {
 
-        if (debug_enabled && game_state == 7) {
-            g_game_ptr->unpause();
-            debug_enabled = !debug_enabled;
-        }
-        else if (!debug_enabled && game_state == 6) {
-            g_game_ptr->pause();
-            debug_enabled = !debug_enabled;
-            current_menu = debug_menu::root_menu;
-        }
+        auto *reg = table->get_region();
+        auto &v6 = reg->get_name();
+        fixedstring<8> v53{v6.to_string()};
 
-        populate_missions_menu(missions_menu);
+        auto district_id = reg->get_district_id();
 
-        create_game_flags_menu(game_menu);
+        //sp_log("%d %s", i, v53.to_string());
 
-        if (level_select_menu->used_slots == 0)
-        {
-            create_level_select_menu(level_select_menu);
-        }
-    }
+        handle_table(table, district_id);
+    });
+
+    assert(0);
 }
 
 
-// Devopts 
 
+
+
+void create_missions_menu(debug_menu* parent)
+{
+
+    auto* missions_menu = create_menu("Missions");
+    auto* v2 = create_menu_entry(missions_menu);
+   debug_menu_entry v1;
+    debug_menu_entry* block = v1.alloc_block(missions_menu, 4);
+    block[0] = debug_menu_entry{ missions_menu };
+    v2->set_game_flags_handler(populate_missions_menu);
+    parent->add_entry(v2);
+}
+
+// Game
+// ----------------------------------------------------------------------------------
 #include "os_developer_options.h"
 #include "devopt.h"
 inline constexpr auto NUM_OPTIONS = 150u + 76u;
@@ -4133,6 +3745,7 @@ void create_devopt_menu(debug_menu* parent)
     auto v5 = debug_menu_entry(v22);
     parent->add_entry(&v5);
 }
+
 void create_game_flags_menu(debug_menu* parent)
 {
     if (parent->used_slots != 0)
@@ -4259,6 +3872,842 @@ void create_game_flags_menu(debug_menu* parent)
     create_gamefile_menu(v92);
 }
 
+// app_rebooter.hpp
+#pragma once
+#include <algorithm>
+#include <cstdlib>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#if defined(_WIN32)
+#define NOMINMAX
+#include <shellapi.h>
+#include <windows.h>
+#else // POSIX (including WSL)
+#include <limits.h>
+#include <unistd.h>
+#endif
+
+
+
+// Global constants
+constexpr const char* kIniPath = "data/game.ini"; // default INI location
+constexpr const char* kLevelList[2] = { "city_arena", "characterb_arena" };
+
+// INI helpers – cross-platform read / write of single values
+inline std::string ReadINI(const char* section,
+    const char* key,
+    const char* defaultValue = "")
+{
+#if defined(_WIN32)
+    char buf[256] {}; // zero-initialise
+    GetPrivateProfileStringA(section,
+        key,
+        defaultValue,
+        buf,
+        static_cast<DWORD>(sizeof(buf)),
+        kIniPath);
+    return buf;
+#else // POSIX (including WSL)
+    std::ifstream file(kIniPath);
+    if (!file)
+        return defaultValue;
+
+    std::string line, currentSection;
+    auto trim = [](std::string& s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c) { return !std::isspace(c); }));
+        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) { return !std::isspace(c); }).base(), s.end());
+    };
+    std::string targetSec(section), targetKey(key);
+    std::transform(targetSec.begin(), targetSec.end(), targetSec.begin(), ::toupper);
+    std::transform(targetKey.begin(), targetKey.end(), targetKey.begin(), ::toupper);
+
+    while (std::getline(file, line)) {
+        trim(line);
+        if (line.empty() || line[0] == ';')
+            continue;
+        if (line.front() == '[' && line.back() == ']') {
+            currentSection = line.substr(1, line.size() - 2);
+            std::transform(currentSection.begin(), currentSection.end(), currentSection.begin(), ::toupper);
+            continue;
+        }
+        if (currentSection != targetSec)
+            continue;
+        auto pos = line.find('=');
+        if (pos == std::string::npos)
+            continue;
+        std::string k = line.substr(0, pos);
+        trim(k);
+        std::transform(k.begin(), k.end(), k.begin(), ::toupper);
+        if (k != targetKey)
+            continue;
+        std::string value = line.substr(pos + 1);
+        trim(value);
+        return value;
+    }
+    return defaultValue;
+#endif
+}
+
+inline void WriteINI(const char* section,
+    const char* key,
+    const char* value)
+{
+#if defined(_WIN32)
+    if (!WritePrivateProfileStringA(section, key, value, kIniPath))
+        throw std::runtime_error("WritePrivateProfileString failed");
+#else // POSIX (including WSL)
+    // Very small, naïve re-write: load file into memory, modify or append key.
+    std::ifstream in(kIniPath);
+    std::vector<std::string> lines;
+    std::string currentSection, targetSec(section);
+    std::transform(targetSec.begin(), targetSec.end(), targetSec.begin(), ::toupper);
+
+    bool keyWritten = false;
+    if (in) {
+        std::string l;
+        while (std::getline(in, l))
+            lines.push_back(l);
+    }
+
+    auto trim = [](std::string& s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char c) { return !std::isspace(c); }));
+        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char c) { return !std::isspace(c); }).base(), s.end());
+    };
+
+    for (auto& l : lines) {
+        std::string line = l;
+        trim(line);
+        if (line.empty() || line[0] == ';')
+            continue;
+        if (line.front() == '[' && line.back() == ']') {
+            currentSection = line.substr(1, line.size() - 2);
+            std::transform(currentSection.begin(), currentSection.end(), currentSection.begin(), ::toupper);
+            continue;
+        }
+        if (currentSection != targetSec)
+            continue;
+        auto pos = line.find('=');
+        if (pos == std::string::npos)
+            continue;
+        std::string k = line.substr(0, pos);
+        trim(k);
+        std::transform(k.begin(), k.end(), k.begin(), ::toupper);
+        if (k == key) {
+            l = std::string(key) + "=" + value;
+            keyWritten = true;
+            break;
+        }
+    }
+
+    if (!keyWritten) {
+        // append [section] + key if missing
+        bool sectionExists = false;
+        for (auto& l : lines) {
+            std::string chk = l;
+            trim(chk);
+            if (chk.front() == '[' && chk.back() == ']') {
+                std::string s = chk.substr(1, chk.size() - 2);
+                std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+                if (s == targetSec) {
+                    sectionExists = true;
+                    break;
+                }
+            }
+        }
+        if (!sectionExists) {
+            lines.push_back("[" + std::string(section) + "]");
+        }
+        lines.push_back(std::string(key) + "=" + value);
+    }
+
+    std::ofstream out(kIniPath, std::ios::trunc);
+    for (auto& l : lines)
+        out << l << "\n";
+#endif
+}
+
+// Convenience: switch active scene by overwriting the value in [Strings]
+inline void SelectScene(const std::string& sceneName)
+{
+    WriteINI("Strings", "SCENE_NAME", sceneName.c_str());
+}
+
+// Process-restart helpers
+
+    inline std::string currentExecutablePath()
+    {
+#if defined(_WIN32)
+        char buf[MAX_PATH];
+        DWORD len = GetModuleFileNameA(nullptr, buf, MAX_PATH);
+        if (len == 0 || len == MAX_PATH)
+            throw std::runtime_error("GetModuleFileName failed");
+        return std::string(buf, len);
+#else // POSIX (including WSL)
+        char buf[PATH_MAX];
+        ssize_t len = ::readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (len == -1)
+            throw std::runtime_error("readlink(/proc/self/exe) failed");
+        buf[len] = '\0';
+        return std::string(buf, len);
+#endif
+    }
+
+    inline void launch(const std::string& exePath,
+        const std::string& args = {})
+    {
+#if defined(_WIN32)
+        std::string cmd = "\"" + exePath + "\" " + args;
+        STARTUPINFOA si { sizeof(si) };
+        PROCESS_INFORMATION pi {};
+        if (!CreateProcessA(nullptr, cmd.data(), nullptr, nullptr, FALSE,
+                0, nullptr, nullptr, &si, &pi))
+            throw std::runtime_error("CreateProcess failed");
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+#else // POSIX (including WSL)
+        if (args.empty())
+            execl(exePath.c_str(), exePath.c_str(), static_cast<char*>(nullptr));
+        else {
+            std::string cmd = exePath + " " + args;
+            execl("/bin/sh", "sh", "-c", cmd.c_str(), static_cast<char*>(nullptr));
+        }
+        throw std::runtime_error("execl failed");
+#endif
+    }
+ // namespace detail
+
+[[noreturn]] inline void restart(const std::string& extraArgs = {})
+{
+    launch(currentExecutablePath(), extraArgs);
+    std::exit(EXIT_SUCCESS);
+}
+
+[[noreturn]] inline void restartWith(const std::string& exePath,
+    const std::string& args = {})
+{
+    launch(exePath, args);
+    std::exit(EXIT_SUCCESS);
+}
+
+// namespace AppRebooter
+
+        void load_level()
+    {
+
+        SelectScene("city_arena");
+        restart();
+
+    }
+
+            void swap_level()
+    {
+
+        SelectScene("characterb_arena"); // or "city_arena"
+        restart();
+    }
+	
+	#include "fe_health_widget.h"
+constexpr auto NUM_HEROES = 17u;
+
+const char* hero_list[NUM_HEROES] = {
+    "ultimate_spiderman",
+    "venom",
+    "peter_parker",
+    "peter_hooded",
+    "venom_spider",
+    "carnage",
+    "rhino",
+    "green_goblin",
+    "army_mary_jane",
+    "venarge",
+    "electro_suit",
+    "electro_nosuit",
+    "wolverine",
+    "beetle",
+    "shocker",
+    "silver_sable",
+    "johnny_storm",
+};
+
+enum class hero_status_e {
+    UNDEFINED = 0,
+    REMOVE_PLAYER = 1,
+    ADD_PLAYER = 2,
+    CHANGE_HEALTH_TYPE = 3,
+} hero_status;
+
+int hero_selected;
+int frames_to_skip = 2;
+
+struct level_descriptor_t
+{
+    fixedstring<32> field_0;
+    fixedstring<64> field_20;
+    fixedstring<16> field_60;
+    int field_70;
+    int field_74;
+    int field_78;
+    int field_7C;
+    int field_80;
+    int field_84;
+    int field_88;
+    int field_8C;
+};
+
+// VALIDATE_SIZE(level_descriptor_t, 0x90);
+
+level_descriptor_t* get_level_descriptors(int* arg0)
+{
+    auto* game_partition = resource_manager::get_partition_pointer(resource_partition_enum(0));
+    assert(game_partition != nullptr);
+
+    assert(game_partition->get_pack_slots().size() == 1);
+
+    auto& v2 = game_partition->get_pack_slots();
+    auto* game_slot = v2.front();
+    assert(game_slot != nullptr);
+
+    auto v6 = 9;
+    string_hash v5{ "level" };
+    resource_key a1{ v5, (resource_key_type)v6 };
+    int a2 = 0;
+    auto* v11 = (level_descriptor_t*)game_slot->get_resource(a1, &a2, nullptr);
+
+    if (arg0 != nullptr)
+    {
+        *arg0 = a2 / sizeof(level_descriptor_t);
+    }
+
+    return v11;
+}
+
+void level_select_handler(debug_menu_entry* entry)
+{
+    auto* v1 = entry->text;
+    mString v15{ v1 };
+
+    int arg0;
+    auto* v13 = get_level_descriptors(&arg0);
+    for (auto i = 0; i < arg0; ++i)
+    {
+        auto* v2 = v15.c_str();
+        fixedstring<16> v6{ v2 };
+        if (v13[i].field_60 == v6)
+        {
+            auto* v3 = v13[i].field_0.to_string();
+            v15 = { v3 };
+            break;
+        }
+    }
+
+    g_game_ptr->load_new_level(v15, -1);
+}
+
+
+void reboot_handler(debug_menu_entry* a1)
+{
+}
+
+void handle_hero_select_menu(debug_menu_entry* entry, custom_key_type)
+{
+    entry->m_game_flags_handler(entry);
+}
+
+void hero_entry_callback(debug_menu_entry*);
+
+void hero_toggle_handler(debug_menu_entry* entry);
+
+void city_handler(debug_menu_entry *)
+{
+		load_level();
+}
+
+void characterb_handler(debug_menu_entry *)
+{
+	swap_level();
+}
+
+    void remove_player(int player_num)
+    {
+        void (__fastcall *func)(void *, void *, int) = bit_cast<decltype(func)>(0x00558550);
+
+        func(g_world_ptr, nullptr, player_num);
+    }
+
+
+
+    int add_player(const mString &a2)
+    {
+        int (__fastcall *func)(void *, void *, const mString *) = bit_cast<decltype(func)>(0x0055B400);
+
+        return func(g_world_ptr, nullptr, &a2);
+    }
+
+
+
+
+
+inline void create_level_select_menu(debug_menu* parent)
+{
+    // assert(debug_menu::root_menu != nullptr);
+
+    auto* level_select_menu = create_menu("Level Select");
+    auto* v15 = create_menu_entry(level_select_menu);
+    parent->add_entry(v15);
+
+            debug_menu_entry v1;
+    debug_menu_entry* block = v1.alloc_block(level_select_menu, 4);
+    block[0] = debug_menu_entry { level_select_menu };
+
+	
+
+
+
+
+    static debug_menu* hero_select_menu = create_menu("Hero Select");
+
+    debug_menu_entry v28 { hero_select_menu };
+
+
+            debug_menu_entry v2;
+    debug_menu_entry* block1 = v2.alloc_block(hero_select_menu, 4);
+    block1[0] = debug_menu_entry { hero_select_menu };
+
+    level_select_menu->add_entry(&v28);
+    for (auto i = 0u; i < NUM_HEROES; ++i) {
+        string_hash v5 { hero_list[i] };
+        const auto v19 = mString { hero_list[i] };
+        auto* v12 = v19.c_str();
+        auto key = create_resource_key_from_path(v12, RESOURCE_KEY_TYPE_PACK);
+
+        auto v30 = resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr);
+        if (v30) {
+
+            debug_menu_entry v37 { v19.c_str() };
+
+            v37.set_game_flags_handler(hero_toggle_handler);
+            v37.m_id = i;
+            v37.set_frame_advance_cb(hero_entry_callback);
+            hero_select_menu->add_entry(&v37);
+        }
+    }
+            mString v23 { "city" };
+    debug_menu_entry v40 { v23.c_str() };
+
+    v40.set_game_flags_handler(city_handler);
+
+        level_select_menu->add_entry(&v40);
+
+        mString v24 { "characterb" };
+    debug_menu_entry v41 { v24.c_str() };
+
+    v41.set_game_flags_handler(characterb_handler);
+
+    level_select_menu->add_entry(&v41);
+
+    mString v25 { "-- REBOOT --" };
+    debug_menu_entry v38 { v25.c_str() };
+
+    v38.set_game_flags_handler(reboot_handler);
+
+    level_select_menu->add_entry(&v38);    
+	
+}
+
+ 
+
+
+void hero_toggle_handler(debug_menu_entry* entry)
+{
+    printf("hero_toggle_handler\n");
+    assert(entry->get_id() < NUM_HEROES);
+    hero_selected = entry->get_id();
+    hero_status = hero_status_e::REMOVE_PLAYER;
+}
+
+void hero_entry_callback(debug_menu_entry*)
+{
+    printf("hero_entry_callback: hero_status = %d\n", hero_status);
+
+    auto v18 = g_world_ptr->num_players;
+    switch (hero_status)
+    {
+    case hero_status_e::REMOVE_PLAYER:
+    {
+        remove_player(v18 - 1);
+        hero_status = hero_status_e::ADD_PLAYER;
+        frames_to_skip = 2;
+        g_game_ptr->enable_marky_cam(true, true, -1000.0, 0.0);
+        break;
+    }
+    case hero_status_e::ADD_PLAYER:
+    {
+        auto v1 = frames_to_skip--;
+        if (v1 <= 0)
+        {
+            assert(hero_selected > -1 && hero_selected < NUM_HEROES);
+
+            [[maybe_unused]] auto v2 = add_player(mString{ hero_list[hero_selected] });
+            Sleep(1000);
+            /*
+            auto v10 = v2 <= v18;
+
+            assert(v10 && "Cannot add another_player");
+            */
+
+            g_game_ptr->enable_marky_cam(false, true, -1000.0, 0.0);
+            frames_to_skip = 2;
+            hero_status = hero_status_e::CHANGE_HEALTH_TYPE;
+        }
+        break;
+    }
+    case hero_status_e::CHANGE_HEALTH_TYPE: {
+        auto v3 = frames_to_skip--;
+        if (v3 <= 0)
+        {
+            auto v17 = 0;
+            auto* v5 = (actor*)g_world_ptr->get_hero_ptr(0);
+            auto* v6 = v5->get_player_controller();
+            auto v9 = v6->m_hero_type;
+            switch (v9)
+            {
+                case RUNNING:
+                    v17 = 0;
+                    break;
+                case CRAWLING:
+                    v17 = 4;
+                    break;
+                case SWINGING:
+                    v17 = 5;
+                    break;
+            }
+
+            auto* v7 = g_world_ptr->get_hero_ptr(0);
+            auto v8 = v7->my_handle;
+            g_femanager.IGO->hero_health->SetType(v17, v8.field_0);
+            g_femanager.IGO->hero_health->SetShown(true);
+            close_debug();
+            hero_status = hero_status_e::UNDEFINED;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+#pragma endregion
+
+// Debug Menu
+// ----------------------------------------------------------------------------------
+
+void debug_menu::init() {
+    root_menu = create_menu("Debug Menu", handle_debug_entry, 10);
+    game_menu = create_menu("Game", handle_game_entry, 300);
+
+    script_menu = create_menu("Script");
+    progression_menu = create_menu("Progression");
+
+	
+		debug_menu_entry v1;
+   debug_menu_entry* block = v1.alloc_block(game_menu, 4);
+   block[0] = debug_menu_entry{ game_menu };
+   
+   		debug_menu_entry v2;
+   debug_menu_entry* block1 = v2.alloc_block(script_menu, 4);
+   block1[0] = debug_menu_entry{ script_menu };
+
+   		debug_menu_entry v3;
+   debug_menu_entry* block2 = v3.alloc_block(progression_menu, 4);
+   block2[0] = debug_menu_entry{ progression_menu };
+   
+    debug_menu_entry game_entry{ game_menu };
+
+    debug_menu_entry script_entry{ script_menu };
+    debug_menu_entry progression_entry{ progression_menu };
+
+    create_dvars_menu(root_menu);
+    create_warp_menu(root_menu);
+	create_game_flags_menu(game_menu);
+    add_debug_menu_entry(root_menu, &game_entry);
+    create_missions_menu(root_menu);
+	create_debug_render_menu(root_menu);
+    create_debug_district_variants_menu(root_menu);
+	create_replay_menu(root_menu);
+	create_ai_root_menu(root_menu);
+	create_memory_menu(root_menu);
+    create_entity_variants_menu(root_menu);
+	create_entity_animation_menu(root_menu);
+    create_level_select_menu(root_menu);
+	add_debug_menu_entry(root_menu, &script_entry);
+    add_debug_menu_entry(root_menu, &progression_entry);
+	create_camera_menu_items(root_menu);
+
+
+    /*
+    for (int i = 0; i < 5; i++) {
+
+        debug_menu_entry asdf;
+        sprintf(asdf.text, "entry %d", i);
+        printf("AQUI %s\n", asdf.text);
+
+        add_debug_menu_entry(debug_menu::root_menu, &asdf);
+    }
+    add_debug_menu_entry(debug_menu::root_menu, &teste);
+    */
+}
+#ifdef _WIN32
+#define _USE_MATH_DEFINES
+#define NOMINMAX
+#endif
+
+void render_current_debug_menu() {
+    auto UP_ARROW{ " ^ ^ ^ " };
+    auto DOWN_ARROW{ " v v v " };
+
+    int num_elements = std::min((DWORD)MAX_ELEMENTS_PAGE, current_menu->used_slots - current_menu->window_start);
+    int needs_down_arrow = ((current_menu->window_start + MAX_ELEMENTS_PAGE) < current_menu->used_slots) ? 1 : 0;
+
+    int cur_width, cur_height;
+    int debug_width = 0;
+    int debug_height = 0;
+
+    auto get_and_update = [&](auto* x) {\
+        getStringDimensions(x, &cur_width, &cur_height); \
+        debug_height += cur_height; \
+        debug_width = std::max(debug_width, cur_width); \
+        };
+
+    //printf("new size: %s %d %d (%d %d)\n", x, debug_width, debug_height, cur_width, cur_height);
+
+    get_and_update(current_menu->title);
+    get_and_update(UP_ARROW);
+
+    int total_elements_page = needs_down_arrow ? MAX_ELEMENTS_PAGE : current_menu->used_slots - current_menu->window_start;
+
+    for (int i = 0; i < total_elements_page; ++i) {
+        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
+        auto cur = getRealText(entry);
+        get_and_update(cur.c_str());
+    }
+
+    if (needs_down_arrow) {
+        get_and_update(DOWN_ARROW);
+    }
+
+    nglQuad quad;
+
+    int menu_x_start = 20, menu_y_start = 40;
+    int menu_x_pad = 24, menu_y_pad = 18;
+
+    nglInitQuad(&quad);
+    nglSetQuadRect(&quad, menu_x_start, menu_y_start, menu_x_start + debug_width + menu_x_pad, menu_y_start + debug_height + menu_y_pad);
+    nglSetQuadColor(&quad, debug_menu::has_focus ? 0xC8141414 : 0x64141414);
+    nglSetQuadZ(&quad, 0.5f);
+    nglListAddQuad(&quad);
+    
+    int white_color = nglColor(255, 255, 255, 255);
+    int yellow_color = nglColor(255, 255, 0, 255);
+    int green_color = nglColor(0, 255, 0, 255);
+    int pink_color = nglColor(255, 0, 255, 255);
+
+    int render_height = menu_y_start;
+    render_height += 12;
+    int render_x = menu_x_start;
+    render_x += 8;
+    
+    nglListAddString(nglSysFont(), render_x, render_height, 0.2f, green_color, 1.f, 1.f, current_menu->title);
+    render_height += getStringHeight(current_menu->title);
+
+    if (current_menu->window_start) {
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, UP_ARROW);
+    }
+
+    render_height += getStringHeight(UP_ARROW);
+
+    for (int i = 0; i < total_elements_page; i++) {
+
+        int current_color = current_menu->cur_index == i ? yellow_color : white_color;
+
+        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
+        auto cur = getRealText(entry);
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, current_color, 1.f, 1.f, cur.c_str());
+        render_height += getStringHeight(cur.c_str());
+    }
+
+    if (needs_down_arrow) {
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, DOWN_ARROW);
+        render_height += getStringHeight(DOWN_ARROW);
+    }
+}
+
+void debug_nglListEndScene_hook() {
+    g_console->render();
+
+    if (debug_enabled) 
+        render_current_debug_menu();
+	
+	    if (debug_disabled) 
+        render_current_debug_menu();
+
+    nglListEndScene();
+}
+
+void close_debug()
+{
+    debug_enabled = 0;
+    debug_disabled = 0;
+    g_game_ptr->unpause();
+    g_game_ptr->enable_physics(true);
+}
+
+void disable_physics()
+{
+    debug_enabled = 1;
+    g_game_ptr->unpause();
+    current_menu = current_menu;
+    g_game_ptr->enable_physics(false);
+}
+
+void enable_physics()
+{
+    debug_disabled = 1;
+    g_game_ptr->unpause();
+    current_menu = current_menu;
+    g_game_ptr->enable_physics(true);
+}
+
+void custom()
+{
+    debug_disabled = 1;
+    g_game_ptr->unpause();
+    current_menu = current_menu;
+    !os_developer_options::instance->get_flag("ENABLE_ZOOM_MAP");
+    spider_monkey::is_running();
+    g_game_ptr->enable_physics(false);
+}
+
+
+
+
+
+
+
+
+
+
+void menu_setup(int game_state, int keyboard) {
+	if (is_menu_key_pressed(MENU_TOGGLE, keyboard) && (game_state == 6 || game_state == 7)) {
+
+    //debug menu stuff
+        if (!debug_enabled && game_state == 6) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = debug_menu::root_menu;
+                custom();
+            }
+
+            else if (!debug_disabled && game_state == 6) {
+                g_game_ptr->unpause();
+                debug_disabled = !debug_disabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled && game_state == 6) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled, debug_disabled && game_state == 6) {
+                g_game_ptr->unpause();
+                debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
+                current_menu = current_menu;
+                enable_physics();
+            }
+        }
+
+        if (is_menu_key_pressed(MENU_TOGGLE, keyboard) && (game_state == 6 || game_state == 7)) {
+
+            if (!debug_enabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = debug_menu::root_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_disabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_disabled = !debug_disabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled, debug_disabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
+                current_menu = current_menu;
+                enable_physics();
+            }
+
+            if (!debug_enabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = debug_menu::root_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_disabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_disabled = !debug_disabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_enabled = !debug_enabled;
+                current_menu = current_menu;
+                disable_physics();
+
+            }
+
+            else if (!debug_enabled, debug_disabled && game_state == 7) {
+                g_game_ptr->unpause();
+                debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
+                current_menu = current_menu;
+                enable_physics();
+            }
+
+
+
+
+
+    }
+}
+
+
+
 
 void init_shadow_targets2()
 {
@@ -4271,20 +4720,21 @@ void init_shadow_targets2()
 
 uint8_t __stdcall slf__debug_menu_entry__set_handler__str(vm_stack* stack, void* unk) {
 
-    stack->pop(8);
+stack->pop(8);
 
-    void** params = (void**)stack->SP;
+void** params = (void**)stack->SP;
 
-    debug_menu_entry* entry = static_cast<decltype(entry)>(params[0]);
-    const char* scrpttext = static_cast<char*>(params[1]);
+debug_menu_entry* entry = static_cast<decltype(entry)>(params[0]);
+const char* scrpttext = static_cast<char*>(params[1]);
 
-    string_hash strhash{ scrpttext };
+string_hash strhash{ scrpttext };
 
-    script_instance* instance = stack->my_thread->inst;
-    entry->set_script_handler(instance, mString{ scrpttext });
+script_instance* instance = stack->my_thread->inst;
+entry->set_script_handler(instance, mString{ scrpttext });
 
-    return true;
-}
+return true;
+} 
+
 
 uint8_t __stdcall slf__destroy_debug_menu_entry__debug_menu_entry(vm_stack* function, void* unk) {
 
@@ -4340,67 +4790,49 @@ uint8_t __fastcall slf__create_progression_menu_entry(script_library_class::func
     return true;
 }
 
-
 bool __fastcall slf__create_debug_menu_entry(script_library_class::function* func, void*, vm_stack* stack, void* unk)
 {
-    stack->pop(4);
+stack->pop(4);
 
-    auto* stack_ptr = bit_cast<char*>(stack->SP);
-    sub_65BB36(func, stack, stack_ptr, 1);
-    char** strs = bit_cast<char**>(stack->SP);
+auto* stack_ptr = bit_cast<char*>(stack->SP);
+sub_65BB36(func, stack, stack_ptr, 1);
+char** strs = bit_cast<char**>(stack->SP);
 
-    //printf("Entry: %s ", strs[0]);
+//printf("Entry: %s ", strs[0]);
 
-    debug_menu_entry entry{};
-    entry.entry_type = debug_menu_entry_type::dUNDEFINED;
-    strcpy(entry.text, strs[0]);
+debug_menu_entry entry{};
+entry.entry_type = debug_menu_entry_type::dUNDEFINED;
+strcpy(entry.text, strs[0]);
 
-    printf("entry.text = %s\n", entry.text);
+printf("entry.text = %s\n", entry.text);
 
-    script_instance* instance = stack->my_thread->inst;
-    printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
-    void* res = add_debug_menu_entry(script_menu, &entry);
+script_instance* instance = stack->my_thread->inst;
+printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
 
-    script_executable* se = stack->my_thread->ex->owner->parent;
-    printf("total_script_objects = %d\n", se->total_script_objects);
-    for (auto i = 0; i < se->total_script_objects; ++i) {
-        auto* so = se->script_objects[i];
-        printf("Name of script_object = %s\n", so->name.to_string());
+void* res = add_debug_menu_entry(script_menu, &entry);
 
-        auto* so_menu = create_menu(so->name.to_string(), debug_menu::sort_mode_t::ascending);
-        auto* so_entry = create_menu_entry(so->name.to_string());
-        so_entry->set_data(so);
-        so_entry->set_submenu(so_menu);
-        so_entry->set_game_flags_handler(nullptr);
+script_executable* se = stack->my_thread->ex->owner->parent;
+printf("total_script_objects = %d\n", se->total_script_objects);
+for (auto i = 0; i < se->total_script_objects; ++i) {
+auto* so = se->script_objects[i];
+printf("Name of script_object = %s\n", so->name.to_string());
 
-        script_menu->add_entry(so_entry);
+for (auto i = 0; i < so->total_funcs; ++i) {
+printf("Func name: %s\n", so->funcs[i]->name.to_string());
+}
 
-        for (auto j = 0; j < so->total_funcs; ++j) {
-            auto* fn = so->funcs[j];
-            printf("Func name: %s\n", fn->name.to_string());
+printf("\n");
+}
 
-            debug_menu_entry fn_entry{ fn->name.to_string() };
-            script_instance* instance = stack->my_thread->inst;
-            fn_entry.set_script_handler(instance, { fn->name.to_string()});
+se->add_allocated_stuff_for_debug_menu(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
 
-            fn_entry.set_data(nullptr);
-            fn_entry.set_submenu(nullptr);
+//printf("%08X\n", res);
 
-            add_debug_menu_entry(so_menu, &fn_entry);
-        }
-
-        printf("\n");
-    }
-
-    se->add_allocated_stuff(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
-
-    //printf("%08X\n", res);
-
-    int push = (int)res;
-    auto sz = sizeof(push);
-    memcpy((void*)stack->SP, &push, sz);
-    stack->SP += sz;
-    return 1;
+int push = (int)res;
+auto sz = sizeof(push);
+memcpy((void*)stack->SP, &push, sz);
+stack->SP += sz;
+return 1;
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -4429,7 +4861,7 @@ BOOL install_redirects()
 
     //REDIRECT(0, sub_5952D0);
 
-    if constexpr (1)
+    if constexpr (0)
     {
         moved_entities_patch();
 
@@ -4479,25 +4911,44 @@ BOOL install_redirects()
 
 
     // @todo: debug menu
-    if constexpr (DEBUG_MENU_REIMPL)
-    {
-        REDIRECT(0x0052B4BF, spider_monkey::render);
+if constexpr (DEBUG_MENU_REIMPL) {
+    // Redirect and hook functions
+    REDIRECT(0x0052B4BF, spider_monkey::render);
+    HookFunc(0x004EACF0, (DWORD)aeps_RenderAll, 0, "Patching call to aeps::RenderAll");
+    HookFunc(0x0052B5D7, (DWORD)debug_nglListEndScene_hook, 0, "Hooking nglListEndScene to inject debug menu");
+    HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
+    REDIRECT(0x005E10EE, init_shadow_targets2);
 
-        HookFunc(0x004EACF0, (DWORD)aeps_RenderAll, 0, "Patching call to aeps::RenderAll");
-        HookFunc(0x0052B5D7, (DWORD)debug_nglListEndScene_hook, 0, "Hooking nglListEndScene to inject debug menu");
-        HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
-        REDIRECT(0x005E10EE, init_shadow_targets2);
+    // Define a lambda function to write DWORD values
+    auto write_dword = [](int address, DWORD new_value, const char* reason) {
+        *reinterpret_cast<DWORD*>(address) = new_value;
+        if (reason) {
+            printf("Wrote: %08X - %s\n", address, reason);
+        }
+    };
 
-        auto writeDWORD = [](int address, DWORD newValue, [[maybe_unused]] const char* reason) -> void {
-            *((DWORD*)address) = newValue;
-        };
-        writeDWORD(0x0089C710, (DWORD)slf__create_progression_menu_entry, "Hooking first ocurrence of create_progession_menu_entry");
-        writeDWORD(0x0089C718, (DWORD)slf__create_progression_menu_entry, "Hooking second  ocurrence of create_progession_menu_entry");
-        writeDWORD(0x0089AF70, (DWORD)slf__create_debug_menu_entry, "Hooking first ocurrence of create_debug_menu_entry");
-        writeDWORD(0x0089C708, (DWORD)slf__create_debug_menu_entry, "Hooking second  ocurrence of create_debug_menu_entry");
-        writeDWORD(0x0089C720, (DWORD)slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry");
-        writeDWORD(0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler");
+    // Hook debug menu entry functions
+    struct DebugMenuHook {
+        int address;
+        DWORD new_value;
+        const char* reason;
+    };
+
+    DebugMenuHook hooks[] = {
+        {0x0089C710, (DWORD)slf__create_progression_menu_entry, "Hooking first occurrence of create_progression_menu_entry"},
+        {0x0089C718, (DWORD)slf__create_progression_menu_entry, "Hooking second occurrence of create_progression_menu_entry"},
+        {0x0089AF70, (DWORD)slf__create_debug_menu_entry, "Hooking first occurrence of create_debug_menu_entry"},
+        {0x0089C708, (DWORD)slf__create_debug_menu_entry, "Hooking second occurrence of create_debug_menu_entry"},
+        {0x0089C720, (DWORD)slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry"},
+        {0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler"}
+    };
+
+    for (const auto& hook : hooks) {
+        write_dword(hook.address, hook.new_value, hook.reason);
     }
+
+  //  script_lib_debug_menu_patch();
+}
 
     return true;
 
@@ -4517,7 +4968,7 @@ BOOL install_redirects()
     ngl_patch();
 
     //standalone patches
-    if constexpr (1)
+    if constexpr (0)
     {
         slc_manager_patch();
     
@@ -4552,7 +5003,7 @@ BOOL install_redirects()
         us_simpleshader_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         sound_manager_patch();
 
@@ -4646,7 +5097,7 @@ BOOL install_redirects()
         script_access_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         combo_system_patch();
 
@@ -4747,7 +5198,7 @@ BOOL install_redirects()
         mash_info_struct_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         worldly_pack_slot_patch();
 
@@ -4766,7 +5217,7 @@ BOOL install_redirects()
         chuck_callbacks_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         os_file_patch();
 
@@ -4783,7 +5234,7 @@ BOOL install_redirects()
 
     animation_logic_system_patch();
 
-    if constexpr (1)
+    if constexpr (0)
     {
         interactable_interface_patch();
 
@@ -4794,7 +5245,7 @@ BOOL install_redirects()
         variant_interface_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         nalStreamInstance_patch();
 
@@ -4807,7 +5258,7 @@ BOOL install_redirects()
         cut_scene_player_patch();
     }
 
-    if constexpr (1)
+    if constexpr (0)
     {
         character_anim_controller_patch();
 
@@ -4995,9 +5446,9 @@ BOOL install_redirects()
 #define ORIGINAL_DLL 0
 #if ORIGINAL_DLL
     {
-        if constexpr (0)
+        if constexpr (1)
         {
-            if constexpr (0) {
+            if constexpr (1) {
                 //EnableLog l{};
 
                 sp_log("Ints:");
