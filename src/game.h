@@ -182,7 +182,10 @@ struct game {
     }
 
     game_settings *get_game_settings();
+	
 
+	
+	
     void go_next_state();
 
     game_state get_cur_state() const;
@@ -308,6 +311,8 @@ public:
     void push_lores();
 
     void push_process(game_process &process);
+	
+	void render_bar_of_shame();
 
     //0x00557B80
     void render_intros();

@@ -16,6 +16,7 @@ constexpr auto MAX_CHARS = MAX_CHARS_SAFE + 1;
 
 enum debug_menu_entry_type {
     dUNDEFINED = 0,
+    NORMAL,
     FLOAT_E,
     POINTER_FLOAT,
     INTEGER,
@@ -23,6 +24,7 @@ enum debug_menu_entry_type {
     BOOLEAN_E,
     POINTER_BOOL,
     POINTER_MENU,
+    BOOLEAN_NUM
 };
 
 extern const char *to_string(debug_menu_entry_type entry_type);
@@ -70,6 +72,10 @@ struct debug_menu_entry {
     } field_20 {0.f, 1.f, 0.1f, 10.f};
     bool m_value_initialized {false};
     void *m_data = nullptr;
+        bool m_checked{false};
+
+        void set_checked(bool state) { m_checked = state; }
+    bool is_checked() const { return m_checked; }
 
     void set_step_size(float a2)
     {
@@ -90,6 +96,8 @@ struct debug_menu_entry {
     {
         return this->m_data;
     }
+
+
 
     std::string get_script_handler()
     {
@@ -112,6 +120,8 @@ struct debug_menu_entry {
     }
 
     void set_submenu(debug_menu *submenu);
+	
+	    void set_submenu2(debug_menu *submenu);
 
     void on_select(float a2);
 
@@ -156,6 +166,37 @@ struct debug_menu_entry {
         }
 
         this->get_fval();
+    }
+
+    bool get_bval2() const
+    {
+        auto v2 = this->entry_type;
+        if (v2 == BOOLEAN_NUM)
+        {
+            return this->m_value.bval;
+        }
+
+        assert(0);
+        return 0;
+    }
+
+        bool set_bval2(bool a2, bool a3)
+    {
+        if (!this->is_value_initialized()) {
+            auto v4 = this->entry_type;
+            if (v4 == BOOLEAN_NUM) {
+                this->m_value.bval = a2;
+            } else {
+
+                assert(0);
+            }
+
+            if (this->m_game_flags_handler != nullptr && a3) {
+                this->m_game_flags_handler(this);
+            }
+        }
+
+        return this->get_bval2();
     }
 
     float get_fval()
@@ -281,6 +322,11 @@ struct debug_menu_entry {
         this->entry_type = BOOLEAN_E;
         this->m_value.bval = a2;
     }
+    void set_bval2(bool a2)
+    {
+        this->entry_type = BOOLEAN_NUM;
+        this->m_value.bval = a2;
+    }
 
     bool set_bval(bool a2, bool a3)
     {
@@ -330,6 +376,8 @@ struct debug_menu_entry {
         v2.m_step_scale = a2[3];
     }
 
+        debug_menu_entry* alloc_block(debug_menu* m, std::size_t n);
+
     void set_game_flags_handler(void (*a2)(debug_menu_entry *))
     {
         this->m_game_flags_handler = a2;
@@ -354,11 +402,8 @@ struct debug_menu_entry {
     }
 
     debug_menu_entry(debug_menu *submenu);
+	
 };
-
-
-extern void remove_debug_menu_entry(debug_menu_entry* entry);
-
 
 extern debug_menu_entry *g_debug_camera_entry;
 
@@ -384,6 +429,8 @@ struct debug_menu {
 	debug_menu_entry* entries;
     debug_menu *m_parent {nullptr};
     sort_mode_t m_sort_mode;
+    size_t count;
+
 
     void add_entry(debug_menu_entry *entry);
 
@@ -392,6 +439,8 @@ struct debug_menu {
         debug_menu_entry entry {a1};
         this->add_entry(&entry);
     }
+
+
 
     static void hide()
     {
@@ -414,6 +463,10 @@ struct debug_menu {
     static inline debug_menu *root_menu = nullptr;
 
     static inline bool physics_state_on_exit = true;
+
+        static inline bool has_focus = false;
+		
+		static inline bool active_menu;
 };
 
 extern void* add_debug_menu_entry(debug_menu* menu, debug_menu_entry* entry);

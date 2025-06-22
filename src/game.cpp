@@ -461,19 +461,7 @@ void game::enable_marky_cam(bool a2, bool a3, Float a4, Float a5) {
     }
 }
 
-void game::soft_reset_process()
-{
-    if constexpr (0)
-    {
-        this->process_stack.clear();
 
-        this->push_process(main_process);
-    }
-    else
-    {
-        THISCALL(0x00548C70, this);
-    }
-}
 
 void game::load_complete() {
     g_game_ptr->level.load_completed = true;
@@ -737,7 +725,7 @@ void game::handle_frame_locking(float *a1)
 {
     auto frame_lock = os_developer_options::instance->get_int(mString {"FRAME_LOCK"});
     if ( frame_lock > 0 ) {
-        *a1 = 1.0 / frame_lock;
+        *a1 = 0.5 / frame_lock;
     }
 }
 
@@ -781,7 +769,7 @@ void game::pop_process()
 {
     assert(process_stack.size() != 0);
 
-    if constexpr (0) {
+    if constexpr (1) {
         this->process_stack.pop_back();
     } else {
         auto v1 = this->process_stack.begin();
@@ -1759,6 +1747,30 @@ void game::freeze_hero(bool a2)
     }
 }
 
+
+
+void game::soft_reset_process()
+{
+    if constexpr (1)
+    {
+        this->process_stack.clear();
+
+        this->push_process(main_process);
+		
+    }
+    else
+    {
+        THISCALL(0x00548C70, this);
+    }
+}
+
+
+
+
+
+					
+
+
 void game::load_this_level()
 {
     TRACE("game::load_this_level");
@@ -2272,7 +2284,7 @@ void game::load_new_level(const mString &a2, const vector3d &a3)
 
 void game::load_new_level(const mString &a1, int a2)
 {
-    if constexpr (0)
+    if constexpr (1)
     {
         this->_load_new_level(a1);
         this->m_hero_start_enabled = true;
@@ -2422,170 +2434,89 @@ mString to_string(const vector3d &a2)
     return a1;
 }
 
-mString game::get_camera_info() const
-{
-    auto *v2 = this->field_5C;
-
-    mString v22;
-    if ( v2->get_primary_region() != nullptr )
-    {
-        auto *v4 = v2->get_primary_region();
-        auto &v5 = v4->get_name();
-        auto *v6 = v5.to_string();
-        v22 = mString{v6};
-    }
-    else
-    {
-        v22 = mString{"none"};
-    }
-
-    mString v33 = v22;
-
-
-    auto &v18 = v2->get_abs_position();
-    auto *v8 = g_world_ptr->get_the_terrain();
-    auto *v32 = v8->find_region(v18, nullptr);
-    if ( v32 != nullptr )
-    {
-        auto &v9 = v32->get_name();
-        auto *v10 = v9.to_string();
-        v33 = {v10};
-    }
-
-    auto &v12 = v2->get_abs_position();
-    auto v31 = to_string(v12);
-
-    auto &v14 = v2->get_abs_po();
-    auto &v15 = v14.get_z_facing();
-
-    auto v30 = to_string(v15);
-    auto *v20 = v30.c_str();
-    auto *v19 = v31.c_str();
-    auto *v16 = v33.c_str();
-
-    mString v29 {0, "CAMERA @ %s %s, f = %s", v16, v19, v20};
-    auto v24 = " " + v33;
-    v29 += v24;
-    return v29;
+mString get_region_name(region* reg) {
+    return reg ? reg->get_name().to_string() : mString{"none"};
 }
 
-mString game::get_analyzer_info() const
-{
-    string_hash v16 {to_hash("SCENE_ANALYZER_CAM")};
-    auto *v3 = entity_handle_manager::find_entity(v16, entity_flavor_t::CAMERA, false);
+// Helper function to get entity info
+mString get_entity_info(entity* ent, const char* prefix) {
+    auto region_name = get_region_name(ent->get_primary_region());
+    auto position = to_string(ent->get_abs_position());
+    auto facing = to_string(ent->get_abs_po().get_z_facing());
 
-    auto &v14 = v3->get_abs_position();
-    auto *v4 = g_world_ptr->get_the_terrain();
-    auto *v26 = v4->find_region(v14, nullptr);
-
-    mString v25 {""};
-    if ( v26 != nullptr )
-    {
-        auto &v5 = v26->get_name();
-        auto *v6 = v5.to_string();
-        v25 = v6;
-    }
-    
-    auto &v8 = v3->get_abs_position();
-    auto v24 = to_string(v8);
-
-    auto &v10 = v3->get_abs_po();
-    auto &v11 = v10.get_z_facing();
-    auto v23 = to_string(v11);
-
-    auto *v15 = v23.c_str();
-    auto *v12 = v24.c_str();
-
-    mString a1 {0, "ANALYZER @ %s, f = %s", v12, v15};
-    auto v17 = " " + v25;
-    a1 += v17;
-    return a1;
+    mString info{0, "%s @ %s, f = %s", prefix, position.c_str(), facing.c_str()};
+    info += " " + region_name;
+    return info;
 }
 
-mString game::get_hero_info() const
-{
-    auto *v30 = g_world_ptr->get_hero_ptr(0);
-    if ( v30 == nullptr )
-    {
-        mString result {"(hero does not exist!)"};
-        return result;
+// Refactored get_camera_info function
+mString game::get_camera_info() const {
+    auto* camera = this->field_5C;
+    auto region_name = get_region_name(camera->get_primary_region());
+    auto position = to_string(camera->get_abs_position());
+    auto facing = to_string(camera->get_abs_po().get_z_facing());
+
+    // Find region based on absolute position
+    auto* terrain = g_world_ptr->get_the_terrain();
+    auto* region = terrain->find_region(camera->get_abs_position(), nullptr);
+    if (region) {
+        region_name = region->get_name().to_string();
     }
 
-    region *v29 = nullptr;
-    if ( v30 != nullptr )
-    {
-        v29 = v30->get_primary_region();
-    }
-
-    mString v28 {"none"};
-    if ( v29 != nullptr )
-    {
-        auto &v4 = v29->get_name();
-        auto *v5 = v4.to_string();
-        v28 = v5;
-    }
-
-    mString v12;
-    if ( v30 != nullptr )
-    {
-        auto &v6 = v30->get_abs_position();
-        v12 = to_string(v6);
-    }
-    else
-    {
-        v12 = mString{"N/A"};
-    }
-
-    mString v27 = v12;
-
-    vector3d v15;
-    if ( v30 != nullptr )
-    {
-        auto *v7 = v30->physical_ifc();
-        v15 = v7->get_velocity();
-    }
-    else
-    {
-        v15 = ZEROVEC;
-    }
-
-    vector3d v26 = v15;
-    auto *v8 = v28.c_str();
-
-    mString v25{0, "HERO @ %s ", v8};
-
-    auto *v9 = v27.c_str();
-    v25.append(v9, -1);
-    v25.append(", v = ", -1);
-    
-    auto v14 = to_string(v26);
-    auto *v10 = v14.c_str();
-    v25.append(v10, -1);
-    return v25;
+    mString info{0, "CAMERA @ %s %s, f = %s", region_name.c_str(), position.c_str(), facing.c_str()};
+    return info;
 }
 
-void game::show_debug_info() const
-{
+
+mString game::get_analyzer_info() const {
+    string_hash hash{to_hash("SCENE_ANALYZER_CAM")};
+    auto* analyzer = entity_handle_manager::find_entity(hash, entity_flavor_t::CAMERA, false);
+    auto region = get_region_name(g_world_ptr->get_the_terrain()->find_region(analyzer->get_abs_position(), nullptr));
+    auto position = to_string(analyzer->get_abs_position());
+    auto facing = to_string(analyzer->get_abs_po().get_z_facing());
+
+    mString info{0, "ANALYZER @ %s, f = %s", position.c_str(), facing.c_str()};
+    if (!region.empty()) {
+        mString info{0, "ANALYZER @ %s, f = %s%s%s", 
+             position.c_str(), 
+             facing.c_str(), 
+             region.empty() ? "" : " ", 
+             region.empty() ? "" : region.c_str()};
+    }
+    return info;
+}
+mString game::get_hero_info() const {
+    auto* hero = g_world_ptr->get_hero_ptr(0);
+    if (!hero) {
+        return mString{"(hero does not exist!)"};
+    }
+
+    auto region = get_region_name(hero->get_primary_region());
+    auto position = to_string(hero->get_abs_position());
+    auto velocity = to_string(hero->physical_ifc()->get_velocity());
+
+    mString info{0, "HERO @ %s, %s, v = %s", region.c_str(), position.c_str(), velocity.c_str()};
+    return info;
+}
+
+void game::show_debug_info() const {
     TRACE("game::show_debug_info");
 
-    auto DEBUG_INFO_FONT_PCT = os_developer_options::instance->get_int(mString{"DEBUG_INFO_FONT_PCT"});
-    auto v15 = (float)DEBUG_INFO_FONT_PCT / 100.0;
-    auto a1 = this->get_hero_info();
+    auto fontSize = os_developer_options::instance->get_int(mString{"DEBUG_INFO_FONT_PCT"}) / 100.0f;
+    vector2di position{50, 40};
 
-    vector2di v13 {50, 40};
-    auto *v4 = a1.c_str();
-    nglListAddString(nglSysFont(), (float)v13.x, (float)v13.y, 1.0, v15, v15, v4);
+    auto debugInfos = {
+        get_hero_info(),
+        get_camera_info(),
+        get_analyzer_info()
+    };
 
-    auto v12 = this->get_camera_info();
-    v13.y += 20;
-    auto *v5 = v12.c_str();
-    nglListAddString(nglSysFont(), (float)v13.x, (float)v13.y, 1.0, v15, v15, v5);
-
-    auto v11 = this->get_analyzer_info();
-    v13.y += 20;
-    auto *v6 = v11.c_str();
-    nglListAddString(nglSysFont(), (float)v13.x, (float)v13.y, 1.0, v15, v15, v6);
+    for (const auto& info : debugInfos) {
+        nglListAddString(nglSysFont(), position.x, position.y, 1.0, fontSize, fontSize, info.c_str());
+        position.y += 20;
+    }
 }
+
 
 void game::show_max_velocity()
 {
@@ -2770,6 +2701,58 @@ void game::render_ui()
     }
 }
 
+
+inline double sub_A26B70()
+{
+    if (g_game_ptr->field_28C == 0.0) {
+        return 0.0;
+    } else {
+        return 1.0 / g_game_ptr->field_28C;
+    }
+}
+
+inline double sub_690BF1()
+{
+    return sub_A26B70();
+}
+
+
+
+
+void game::render_bar_of_shame()
+{
+    if (os_developer_options::instance->get_flag(mString { "SHOW_BAR_OF_SHAME" })) {
+        auto v39 = g_game_ptr->field_284 * 1000.0;
+
+        int dword_1568744 = 0;
+        if (v39 > dword_1568744) {
+            dword_1568744 = v39;
+        }
+
+        color v38 { 0 };
+        if (sub_690BF1() >= 25.0) {
+            if (sub_690BF1() >= 30.0) {
+                color v5 { 0.0, 1.0, 0.0, 1.0 };
+                v38 = v5;
+            } else {
+                color v4 { 1.0, 1.0, 0.0, 1.0 };
+                v38 = v4;
+            }
+        } else {
+            color v3 { 0.0, 1.0, 0.0, 1.0 };
+            v38 = v3;
+        }
+
+        nglQuad v1;
+        nglInitQuad(&v1);
+        nglSetQuadColor(&v1, (int)(v38.b * 255.0) | ((int)(v38.g * 255.0) << 8) | ((int)(v38.r * 255.0) << 16) | ((int)(v38.a * 255.0) << 24));
+        nglSetQuadBlend(&v1, (nglBlendModeType)2, 0);
+        nglSetQuadRect(&v1, 32.0, 16.0, (v39 * 3.0) + 32.0, 16.0 + 16.0);
+        nglSetQuadZ(&v1, 1.0);
+        nglListAddQuad(&v1);
+    }
+}
+
 void nglListEndScene_hook()
 {
     {
@@ -2847,7 +2830,11 @@ void game::advance_state_running(Float a2)
             }
         }
     } else {
-        THISCALL(0x00559FA0, this, a2);
+
+				       void (__fastcall *func)(void *, void *, Float ) = bit_cast<decltype(func)>(0x00559FA0);
+
+         func(this, nullptr, a2);
+		
     }
 }
 
@@ -2889,7 +2876,10 @@ void game::load_hero_packfile(const char *str, bool a3)
     }
     else
     {
-        THISCALL(0x0055A420, this, str, a3);
+
+		       void (__fastcall *func)(void *, void *, const char *, int ) = bit_cast<decltype(func)>(0x0055A420);
+
+         func(this, nullptr, str, a3);
     }
 }
 
@@ -2899,7 +2889,9 @@ void game::render_empty_list()
     {}
     else
     {
-        CDECL_CALL(0x00510780);
+
+					  		         CDECL_CALL(0x00510780);
+
     }
 }
 
@@ -2913,7 +2905,10 @@ void game::frame_advance(Float a2)
     {}
     else
     {
-        THISCALL(0x0055D780, this, a2);
+
+										       void (__fastcall *func)(void *, void *, Float ) = bit_cast<decltype(func)>(0x0055D780);
+
+         func(this, nullptr, a2);
     }
 }
 
@@ -2956,7 +2951,10 @@ void game::frame_advance_level(Float time_inc)
     }
     else
     {
-        THISCALL(0x0055D650, this, time_inc);
+
+								       void (__fastcall *func)(void *, void *, Float ) = bit_cast<decltype(func)>(0x0055D650);
+
+         func(this, nullptr, time_inc);
     }
 }
 
@@ -2986,7 +2984,7 @@ void game::unload_current_level()
 {
     TRACE("game::unload_current_level");
 
-    if constexpr (0)
+    if constexpr (1)
     {
         mem_print_stats("unload_current_level() start");
 
@@ -3395,7 +3393,9 @@ void game__setup_inputs(game *a1)
     }
     else
     {
-        CDECL_CALL(0x00605950, a1);
+
+		 
+		 THISCALL(0x00605950, a1);
     }
 }
 
@@ -3405,7 +3405,8 @@ void game__setup_input_registrations(game *a1)
     {}
     else
     {
-        CDECL_CALL(0x006063C0, a1);
+
+		 THISCALL(0x006063C0, a1);
     }
 }
 
