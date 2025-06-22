@@ -3872,6 +3872,93 @@ void create_game_flags_menu(debug_menu* parent)
     create_gamefile_menu(v92);
 }
 
+
+
+
+
+	
+	#include "game_level.h"
+	
+	#include "fe_health_widget.h"
+constexpr auto NUM_HEROES = 17u;
+
+const char* hero_list[NUM_HEROES] = {
+    "ultimate_spiderman",
+    "venom",
+    "peter_parker",
+    "peter_hooded",
+    "venom_spider",
+    "carnage",
+    "rhino",
+    "green_goblin",
+    "army_mary_jane",
+    "venarge",
+    "electro_suit",
+    "electro_nosuit",
+    "wolverine",
+    "beetle",
+    "shocker",
+    "silver_sable",
+    "johnny_storm",
+};
+
+enum class hero_status_e {
+    UNDEFINED = 0,
+    REMOVE_PLAYER = 1,
+    ADD_PLAYER = 2,
+    CHANGE_HEALTH_TYPE = 3,
+} hero_status;
+
+int hero_selected;
+int frames_to_skip = 2;
+
+struct level_descriptor_v2_t
+{
+    fixedstring<32> field_0;
+    fixedstring<64> field_20;
+    fixedstring<16> field_60;
+    int field_70;
+    int field_74;
+    int field_78;
+    int field_7C;
+    int field_80;
+    int field_84;
+    int field_88;
+    int field_8C;
+};
+
+#include "game_process.h"
+// VALIDATE_SIZE(level_descriptor_t, 0x90);
+
+level_descriptor_t* get_level_descriptors(int* arg0)
+{
+    auto* game_partition = resource_manager::get_partition_pointer(resource_partition_enum(0));
+    assert(game_partition != nullptr);
+
+    assert(game_partition->get_pack_slots().size() == 1);
+
+    auto& v2 = game_partition->get_pack_slots();
+    auto* game_slot = v2.front();
+    assert(game_slot != nullptr);
+
+    auto v6 = 9;
+    string_hash v5{ "level" };
+    resource_key a1{ v5, (resource_key_type)v6 };
+    int a2 = 0;
+    auto* v11 = (level_descriptor_t*)game_slot->get_resource(a1, &a2, nullptr);
+
+    if (arg0 != nullptr)
+    {
+        *arg0 = a2 / sizeof(level_descriptor_t);
+    }
+
+    return v11;
+}
+
+static int main_flow[] = { 5, 6, 14 };
+game_process mainflow_proc{ "main", main_flow, 3 };
+
+
 // app_rebooter.hpp
 #pragma once
 #include <algorithm>
@@ -4093,120 +4180,98 @@ inline void SelectScene(const std::string& sceneName)
     std::exit(EXIT_SUCCESS);
 }
 
-// namespace AppRebooter
-
-        void load_level()
-    {
-
-        SelectScene("city_arena");
-        restart();
-
-    }
-
-            void swap_level()
-    {
-
-        SelectScene("characterb_arena"); // or "city_arena"
-        restart();
-    }
-	
-	#include "fe_health_widget.h"
-constexpr auto NUM_HEROES = 17u;
-
-const char* hero_list[NUM_HEROES] = {
-    "ultimate_spiderman",
-    "venom",
-    "peter_parker",
-    "peter_hooded",
-    "venom_spider",
-    "carnage",
-    "rhino",
-    "green_goblin",
-    "army_mary_jane",
-    "venarge",
-    "electro_suit",
-    "electro_nosuit",
-    "wolverine",
-    "beetle",
-    "shocker",
-    "silver_sable",
-    "johnny_storm",
-};
-
-enum class hero_status_e {
-    UNDEFINED = 0,
-    REMOVE_PLAYER = 1,
-    ADD_PLAYER = 2,
-    CHANGE_HEALTH_TYPE = 3,
-} hero_status;
-
-int hero_selected;
-int frames_to_skip = 2;
-
-struct level_descriptor_t
-{
-    fixedstring<32> field_0;
-    fixedstring<64> field_20;
-    fixedstring<16> field_60;
-    int field_70;
-    int field_74;
-    int field_78;
-    int field_7C;
-    int field_80;
-    int field_84;
-    int field_88;
-    int field_8C;
-};
-
-// VALIDATE_SIZE(level_descriptor_t, 0x90);
-
-level_descriptor_t* get_level_descriptors(int* arg0)
-{
-    auto* game_partition = resource_manager::get_partition_pointer(resource_partition_enum(0));
-    assert(game_partition != nullptr);
-
-    assert(game_partition->get_pack_slots().size() == 1);
-
-    auto& v2 = game_partition->get_pack_slots();
-    auto* game_slot = v2.front();
-    assert(game_slot != nullptr);
-
-    auto v6 = 9;
-    string_hash v5{ "level" };
-    resource_key a1{ v5, (resource_key_type)v6 };
-    int a2 = 0;
-    auto* v11 = (level_descriptor_t*)game_slot->get_resource(a1, &a2, nullptr);
-
-    if (arg0 != nullptr)
-    {
-        *arg0 = a2 / sizeof(level_descriptor_t);
-    }
-
-    return v11;
-}
 
 void level_select_handler(debug_menu_entry* entry)
 {
     auto* v1 = entry->text;
     mString v15{ v1 };
 
+    level_descriptor_t *desc = nullptr;
+
     int arg0;
     auto* v13 = get_level_descriptors(&arg0);
     for (auto i = 0; i < arg0; ++i)
     {
         auto* v2 = v15.c_str();
-        fixedstring<16> v6{ v2 };
+        fixedstring<4> v6{ v2 };
         if (v13[i].field_60 == v6)
         {
             auto* v3 = v13[i].field_0.to_string();
             v15 = { v3 };
+            desc = &v13[i];
             break;
         }
     }
 
-    g_game_ptr->load_new_level(v15, -1);
-}
+     g_game_ptr->unpause();
+     close_debug();
 
+    if (desc != nullptr) {
+         printf("v15 = %s\n", v15.c_str());
+        g_game_ptr->field_163 = true;
+          void(__fastcall * poppr)(void) = bit_cast<decltype(poppr)>(0x00545B00);
+        app* a = var<app*>(0x009685D4);
+         printf("game state = %d\n", (int)a->instance->m_game->get_cur_state());
+         int main_flow[] = { 5, 6, 14 };
+         game_process main_proc{ "main", main_flow, 3 };
+         a->instance->m_game->push_process(main_proc);
+
+         THISCALL(0x00514C70, a->m_game, &v15, -1);
+
+
+        //loading_a_level = false;                        // mark this before the others
+        strcpy((char*)g_scene_name(), "shader_arena");         // copy the new one
+        a->m_game->level.name_mission_table = mString{ "shader_arena" };        // <-- might not be necessary due to game_load_advance_state or whatever doing this
+        a->m_game->flag.level_is_loaded = 0;            // locks us out..
+         poppr();                                        // pop the current proc from stack
+         g_game_ptr->unpause();                          // unpause
+        close_debug();                                  // hide just incase?
+
+        auto pGame = app::instance->m_game;
+        printf("current state = 0x%08X\n", g_game_ptr->get_cur_state());
+
+#if 1
+        auto loadLevel = [&](game* g, const char* level_name) -> void {
+#           if !defined(TARGET_XBOX) && !defined(TARGET_PS2)
+
+#               if 0
+
+                    static bool& loading_a_level = var<bool>(0x00960CB5);
+                    strcpy((char*)g_scene_name(), level_name);
+                    loading_a_level = false;
+                    g->flag.level_is_loaded = false;
+                    g->level.load_completed = false;
+                    g->process_stack.m_last->reset_index();
+
+#               else
+                    os_developer_options::instance->set_string(mString{ "SCENE_NAME" }, mString{ level_name });
+                    void* p_new_game = malloc(0x2C4u);
+                    if(p_new_game) {
+                        game* new_game = (game*)THISCALL(0x00557610, p_new_game);
+                        if (new_game) {
+                            app::instance->m_game = new_game;
+                            g_game_ptr = new_game;
+                        }
+                    }
+#               endif
+
+#           else
+                // ...
+#           endif
+        };
+		restart();
+		SelectScene("characterb_arena");
+        loadLevel(app::instance->m_game, "city_arena");
+
+
+        g_game_ptr->process_stack.clear();
+        g_game_ptr->push_process(mainflow_proc);
+        printf("current state = 0x%08X\n", g_game_ptr->get_cur_state());
+#endif
+
+    }
+    
+}
 
 void reboot_handler(debug_menu_entry* a1)
 {
@@ -4221,15 +4286,7 @@ void hero_entry_callback(debug_menu_entry*);
 
 void hero_toggle_handler(debug_menu_entry* entry);
 
-void city_handler(debug_menu_entry *)
-{
-		load_level();
-}
 
-void characterb_handler(debug_menu_entry *)
-{
-	swap_level();
-}
 
     void remove_player(int player_num)
     {
@@ -4248,8 +4305,27 @@ void characterb_handler(debug_menu_entry *)
     }
 
 
+void city_handler(debug_menu_entry *)
+{
+			SelectScene("city_arena");
+	
+	restart();
+}
 
+void characterb_handler(debug_menu_entry *)
+{
+	SelectScene("characterb_arena");
+	
+	restart();
+}
 
+void city2_handler(debug_menu_entry *)
+{
+			SelectScene("city2_arena");
+	
+	restart();
+
+}
 
 inline void create_level_select_menu(debug_menu* parent)
 {
@@ -4295,19 +4371,39 @@ inline void create_level_select_menu(debug_menu* parent)
             hero_select_menu->add_entry(&v37);
         }
     }
-            mString v23 { "city" };
+            const auto v23 = mString { "city" };
+			auto* v16 = v23.c_str();
     debug_menu_entry v40 { v23.c_str() };
+        auto key2 = create_resource_key_from_path(v16, RESOURCE_KEY_TYPE_PACK);
 
+        auto v31 = resource_manager::get_pack_file_stats(key2, nullptr, nullptr, nullptr);
     v40.set_game_flags_handler(city_handler);
 
         level_select_menu->add_entry(&v40);
 
-        mString v24 { "characterb" };
+            const auto v24 = mString { "characterb" };
+			auto* v13 = v24.c_str();
     debug_menu_entry v41 { v24.c_str() };
+	
+	        auto key3 = create_resource_key_from_path(v13, RESOURCE_KEY_TYPE_PACK);
+
+        auto v32 = resource_manager::get_pack_file_stats(key3, nullptr, nullptr, nullptr);
 
     v41.set_game_flags_handler(characterb_handler);
 
     level_select_menu->add_entry(&v41);
+	
+            const auto v22 = mString { "city2" };
+			auto* v14 = v22.c_str();
+			        auto key4 = create_resource_key_from_path(v14, RESOURCE_KEY_TYPE_PACK);
+
+        auto v33 = resource_manager::get_pack_file_stats(key4, nullptr, nullptr, nullptr);
+    debug_menu_entry v42 { v22.c_str() };
+	
+	v42.set_game_flags_handler(city2_handler);
+
+
+    level_select_menu->add_entry(&v42);
 
     mString v25 { "-- REBOOT --" };
     debug_menu_entry v38 { v25.c_str() };
@@ -4342,6 +4438,7 @@ void hero_entry_callback(debug_menu_entry*)
         hero_status = hero_status_e::ADD_PLAYER;
         frames_to_skip = 2;
         g_game_ptr->enable_marky_cam(true, true, -1000.0, 0.0);
+		g_game_ptr->freeze_hero(true);
         break;
     }
     case hero_status_e::ADD_PLAYER:
@@ -4350,7 +4447,7 @@ void hero_entry_callback(debug_menu_entry*)
         if (v1 <= 0)
         {
             assert(hero_selected > -1 && hero_selected < NUM_HEROES);
-
+g_game_ptr->freeze_hero(false);
             [[maybe_unused]] auto v2 = add_player(mString{ hero_list[hero_selected] });
             Sleep(1000);
             /*
@@ -4792,47 +4889,64 @@ uint8_t __fastcall slf__create_progression_menu_entry(script_library_class::func
 
 bool __fastcall slf__create_debug_menu_entry(script_library_class::function* func, void*, vm_stack* stack, void* unk)
 {
-stack->pop(4);
+    stack->pop(4);
 
-auto* stack_ptr = bit_cast<char*>(stack->SP);
-sub_65BB36(func, stack, stack_ptr, 1);
-char** strs = bit_cast<char**>(stack->SP);
+    auto* stack_ptr = bit_cast<char*>(stack->SP);
+    sub_65BB36(func, stack, stack_ptr, 1);
+    char** strs = bit_cast<char**>(stack->SP);
 
-//printf("Entry: %s ", strs[0]);
+    //printf("Entry: %s ", strs[0]);
 
-debug_menu_entry entry{};
-entry.entry_type = debug_menu_entry_type::dUNDEFINED;
-strcpy(entry.text, strs[0]);
+    debug_menu_entry entry{};
+    entry.entry_type = debug_menu_entry_type::dUNDEFINED;
+    strcpy(entry.text, strs[0]);
 
-printf("entry.text = %s\n", entry.text);
+    printf("entry.text = %s\n", entry.text);
 
-script_instance* instance = stack->my_thread->inst;
-printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
+    script_instance* instance = stack->my_thread->inst;
+    printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
+    void* res = add_debug_menu_entry(script_menu, &entry);
 
-void* res = add_debug_menu_entry(script_menu, &entry);
+    script_executable* se = stack->my_thread->ex->owner->parent;
+    printf("total_script_objects = %d\n", se->total_script_objects);
+    for (auto i = 0; i < se->total_script_objects; ++i) {
+        auto* so = se->script_objects[i];
+        printf("Name of script_object = %s\n", so->name.to_string());
 
-script_executable* se = stack->my_thread->ex->owner->parent;
-printf("total_script_objects = %d\n", se->total_script_objects);
-for (auto i = 0; i < se->total_script_objects; ++i) {
-auto* so = se->script_objects[i];
-printf("Name of script_object = %s\n", so->name.to_string());
+        auto* so_menu = create_menu(so->name.to_string(), debug_menu::sort_mode_t::ascending);
+        auto* so_entry = create_menu_entry(so->name.to_string());
+        so_entry->set_data(so);
+        so_entry->set_submenu(so_menu);
+        so_entry->set_game_flags_handler(nullptr);
 
-for (auto i = 0; i < so->total_funcs; ++i) {
-printf("Func name: %s\n", so->funcs[i]->name.to_string());
-}
+        script_menu->add_entry(so_entry);
 
-printf("\n");
-}
+        for (auto j = 0; j < so->total_funcs; ++j) {
+            auto* fn = so->funcs[j];
+            printf("Func name: %s\n", fn->name.to_string());
 
-se->add_allocated_stuff_for_debug_menu(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
+            debug_menu_entry fn_entry{ fn->name.to_string() };
+            script_instance* instance = stack->my_thread->inst;
+            fn_entry.set_script_handler(instance, { fn->name.to_string()});
 
-//printf("%08X\n", res);
+            fn_entry.set_data(nullptr);
+            fn_entry.set_submenu(nullptr);
 
-int push = (int)res;
-auto sz = sizeof(push);
-memcpy((void*)stack->SP, &push, sz);
-stack->SP += sz;
-return 1;
+            add_debug_menu_entry(so_menu, &fn_entry);
+        }
+
+        printf("\n");
+    }
+
+    se->add_allocated_stuff_for_debug_menu(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
+
+    //printf("%08X\n", res);
+
+    int push = (int)res;
+    auto sz = sizeof(push);
+    memcpy((void*)stack->SP, &push, sz);
+    stack->SP += sz;
+    return 1;
 }
 
 // ---------------------------------------------------------------------------------------------------
