@@ -43,7 +43,7 @@ struct Mod {
     tlresource_type Type;
     std::vector<uint8_t> Data;
 };
-static std::map<uint32_t, Mod> Mods;
+extern std::map<uint32_t, Mod> Mods;
 
 [[maybe_unused]] static bool hasMod(uint32_t hash) {
     return Mods.find(hash) != Mods.end();

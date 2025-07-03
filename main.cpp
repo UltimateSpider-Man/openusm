@@ -298,6 +298,7 @@
 #include "info_node.h"
 #include "entity_base_vhandle.h"
 
+std::map<uint32_t, Mod> Mods;
 
 void register_class_and_create_window(LPCSTR lpClassName,
                                       LPCSTR lpWindowName,
@@ -5195,7 +5196,9 @@ void enumerate_mods() {
     for (const auto& entry : fs::directory_iterator(modsDir)) {
         if (entry.is_regular_file()) {
             std::vector<uint8_t> fileData = read_file(entry.path());
-            Mods[to_hash(entry.path().stem().string().c_str())] = Mod{TLRESOURCE_TYPE_NONE, std::move(fileData)};
+            auto hash = to_hash(entry.path().stem().string().c_str());
+            Mods[hash] = Mod{TLRESOURCE_TYPE_NONE, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", entry.path().stem().string().c_str(), hash);
         }
     }
 }
