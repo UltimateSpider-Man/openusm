@@ -55,3 +55,9 @@ extern std::map<uint32_t, Mod> Mods;
         return &it->second;
     return nullptr;
 }
+[[maybe_unused]] static uint8_t* getModDataByHash(uint32_t hash) {
+    if (hasMod(hash))
+        if (auto mod = getMod(hash))
+            return &mod->Data.data()[0];
+    return nullptr;
+}
