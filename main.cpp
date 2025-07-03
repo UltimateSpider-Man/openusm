@@ -4500,6 +4500,8 @@ BOOL install_redirects()
         writeDWORD(0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler");
     }
 
+    SET_JUMP(0x0077A870, nglLoadTextureTM2);
+
     return true;
 
     wds_render_manager_patch();
@@ -5195,9 +5197,18 @@ void enumerate_mods() {
 
     for (const auto& entry : fs::directory_iterator(modsDir)) {
         if (entry.is_regular_file()) {
-            std::vector<uint8_t> fileData = read_file(entry.path());
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = entry.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+            if (ext == ".dds" || ext == ".tga") {
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            }
+
             auto hash = to_hash(entry.path().stem().string().c_str());
-            Mods[hash] = Mod{TLRESOURCE_TYPE_NONE, std::move(fileData)};
+            Mods[hash] = Mod{resType, std::move(fileData)};
             printf("name = %s\nhash = 0x%08X\n", entry.path().stem().string().c_str(), hash);
         }
     }

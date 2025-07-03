@@ -3875,6 +3875,12 @@ bool nglLoadTextureTM2(nglTexture *tex, uint8_t *a2)
 
     if constexpr (1) {
         bool result = false;
+        
+        auto hash = tex->field_60.m_hash;
+        if (auto data = getModDataByHash(hash)) {
+            a2 = data;
+        }
+
         if ( nglLoadTextureTM2_internal(tex, bit_cast<nglTextureInfo *>(a2)) ) {
             tex->sub_774F20();
             tex->field_38 = -1;
