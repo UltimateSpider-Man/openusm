@@ -345,6 +345,16 @@ void init_hook(HWND hwnd) {
 }
 
 
+HRESULT tga_hook(IDirect3DDevice9* dev, unsigned __int8* a2, unsigned int a3, IDirect3DBaseTexture9** a4)
+{
+    nglTexture* tex = reinterpret_cast<nglTexture*>(reinterpret_cast<uint8_t*>(a4) - offsetof(nglTexture, DXTexture));
+    printf("loading TGA %s (0x%08X)\n", tex->field_60.to_string(), tex->field_60.m_hash);
+    if (auto data = getModDataByHash(tex->field_60.m_hash))
+        a2 = data;
+
+    return (HRESULT)STDCALL(0x007CA291, dev, a2, a3, a4);
+}
+
 BOOL install_patches()
 {
     sp_log("Installing patches\n");
@@ -371,6 +381,13 @@ BOOL install_patches()
     SET_JUMP(0x0076E050, nglListInit);
 
     SET_JUMP(0x0076EA10, nglListSend);
+
+    // these funcs mysteriously are only used for TGA
+    // and kinda look like it too, but I don't see em being used...
+    // .. so they're here for prosperity
+    REDIRECT(0x0077ABDE, tga_hook);
+    REDIRECT(0x0077AB01, tga_hook);
+    REDIRECT(0x0077A1D8, tga_hook);
 
     sp_log("Patches have been installed\n");
 
@@ -5201,20 +5218,22 @@ void enumerate_mods() {
             std::vector<uint8_t> fileData = read_file(path);
 
             tlresource_type resType = TLRESOURCE_TYPE_NONE;
-            std::string ext = entry.path().extension().string();
+            std::string ext = path.extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
             if (ext == ".dds" || ext == ".tga") {
                 resType = TLRESOURCE_TYPE_TEXTURE;
             }
 
-            auto hash = to_hash(entry.path().stem().string().c_str());
+            auto hash = to_hash(path.stem().string().c_str());
             Mods[hash] = Mod{resType, std::move(fileData)};
-            printf("name = %s\nhash = 0x%08X\n", entry.path().stem().string().c_str(), hash);
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
         }
     }
 }
 
 BOOL install_hooks() {
+    
+
     return set_text_to_writable() && install_redirects() && install_patches() &&
         restore_text_perms();
 }
