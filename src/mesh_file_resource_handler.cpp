@@ -38,7 +38,7 @@ bool mesh_file_resource_handler::_handle_resource(worldly_resource_handler::eBeh
     TRACE("mesh_file_resource_handler::handle_resource", loc->name.to_string());
     sp_log("0x%08X", loc->field_8);
 
-    if constexpr (0)
+    if constexpr (1)
     {
         assert(my_slot->get_resource_directory().get_tlresource_count(TLRESOURCE_TYPE_MESH_FILE) ==
                my_slot->get_resource_directory().get_resource_count(
@@ -93,6 +93,20 @@ bool mesh_file_resource_handler::_handle_resource(worldly_resource_handler::eBeh
         }
         else
         { //LOAD
+
+
+            bool result = (bool)THISCALL(0x0056BD00, this, behavior, loc);
+
+            return result;
+
+#if 0
+            REDIRECT(0x0056BD63, parse_generic_mash_init);
+
+#endif
+
+#if 0
+            printf("hash = 0x%08X\n", loc->name.source_hash_code);
+
             auto &res_dir = my_slot->get_resource_directory();
             auto idx = this->field_C +
                 res_dir.get_type_start_idxs(RESOURCE_KEY_TYPE_MESH_FILE_STRUCT);
@@ -105,6 +119,10 @@ bool mesh_file_resource_handler::_handle_resource(worldly_resource_handler::eBeh
 
             //sp_log("%d 0x%08X", this->field_C, (int) struct_mash);
 
+            if (Mod* mod = getMod(loc->name.source_hash_code)) {
+                //struct_mash = mod->Data.data();
+            }
+
             nglMeshFile *meshFile = nullptr;
             auto alloced_mem = parse_generic_object_mash(meshFile,
                                                          struct_mash,
@@ -114,11 +132,11 @@ bool mesh_file_resource_handler::_handle_resource(worldly_resource_handler::eBeh
                                                          0,
                                                          0,
                                                          nullptr);
+
+
             assert(!alloced_mem && "This should NOT allocate anything!");
 
             auto *v5 = loc;
-            meshFile->FileBuf.Buf = loc->field_8;
-
             auto *v7 = loc->name.to_string();
             tlFixedString v20{v7};
 
@@ -130,10 +148,13 @@ bool mesh_file_resource_handler::_handle_resource(worldly_resource_handler::eBeh
             }
 
             v5->field_8 = CAST(v5->field_8, meshFile);
+#endif
+
         }
 
         ++this->field_C;
         return false;
+
     }
     else
     {

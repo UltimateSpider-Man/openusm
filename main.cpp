@@ -357,6 +357,11 @@ HRESULT tga_hook(IDirect3DDevice9* dev, unsigned __int8* a2, unsigned int a3, ID
     return (HRESULT)STDCALL(0x007CA291, dev, a2, a3, a4);
 }
 
+bool __cdecl readFile(const char* FileName, tlFileBuf* File, size_t Alignment, unsigned int Flags)
+{
+    return (bool)CDECL_CALL(0x0074A710, FileName, File, Alignment, Flags);
+}
+
 BOOL install_patches()
 {
     sp_log("Installing patches\n");
@@ -364,7 +369,6 @@ BOOL install_patches()
 
     // @todo: global config
     REDIRECT(0x005AD218, init_hook);
-
 
     // @todo: debug menu
     {
@@ -383,14 +387,40 @@ BOOL install_patches()
     SET_JUMP(0x0076E050, nglListInit);
 
     SET_JUMP(0x0076EA10, nglListSend);
+    
+    
+    // mod loading
+    {
+        // global assets
+        REDIRECT(0x007700AE, readFile);    // Meshes
+        REDIRECT(0x0077861E, readFile);    // ....
+        REDIRECT(0x00779262, readFile);    // ....
+        REDIRECT(0x0077A9A6, readFile);    // ....
+        REDIRECT(0x0077AA2F, readFile);    // ....
+        REDIRECT(0x0077AA69, readFile);    // ....
+        REDIRECT(0x0077AADC, readFile);    // ....
+        REDIRECT(0x00782CF9, readFile);    // ....
+        REDIRECT(0x0078D653, readFile);    // ....
+        REDIRECT(0x0078DA23, readFile);    // ....
+        REDIRECT(0x0078DD5E, readFile);    // skeletons
 
-    // these funcs mysteriously are only used for TGA
-    // and kinda look like it too, but I don't see em being used...
-    // .. so they're here for prosperity
-    REDIRECT(0x0077ABDE, tga_hook);
-    REDIRECT(0x0077AB01, tga_hook);
-    REDIRECT(0x0077A1D8, tga_hook);
 
+        FUNC_ADDRESS(address, &mesh_file_resource_handler::_handle_resource);
+        set_vfunc(0x00888A44, address);
+        
+        {
+
+            FUNC_ADDRESS(address, &nglTexture::CreateTextureOrSurface);
+            SET_JUMP(0x00775000, address);
+        }
+
+        // these funcs mysteriously are only used for TGA
+        // and kinda look like it too, but I don't see em being used...
+        // .. so they're here for prosperity
+        REDIRECT(0x0077ABDE, tga_hook);
+        REDIRECT(0x0077AB01, tga_hook);
+        REDIRECT(0x0077A1D8, tga_hook);
+    }
     sp_log("Patches have been installed\n");
 
     return TRUE;
@@ -5210,7 +5240,7 @@ std::vector<uint8_t> read_file(const fs::path& filePath) {
 
 void enumerate_mods() {
     fs::path modsDir = fs::current_path() / "mods";
-    if (!fs::exists(modsDir) || !fs::is_directory(modsDir))
+    if (!fs::is_directory(modsDir))
         return;
 
     for (const auto& entry : fs::directory_iterator(modsDir)) {
