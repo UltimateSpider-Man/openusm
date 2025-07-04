@@ -61,6 +61,8 @@
 #include <cmath>
 #include <cstdio>
 
+#include "game.h"
+
 #include <psapi.h>
 
 #include <d3dx9shader.h>
@@ -1343,7 +1345,7 @@ void nglTexture::CreateTextureOrSurface()
     {
         auto v2 = this->m_format;
         if ((v2 & 0x2000) != 0)
-        {
+        {   
             g_Direct3DDevice()
                 ->lpVtbl->CreateDepthStencilSurface(g_Direct3DDevice(),
                                                     this->m_width,
@@ -1373,13 +1375,14 @@ void nglTexture::CreateTextureOrSurface()
                 std::memset(this->field_30, 0, v9);
             } else {
                 this->field_30 = nullptr;
+
             }
 
             auto format = this->m_d3d_format;
 
             auto levels = this->m_numLevel;
 
-            if ((this->m_format & 0x10000000) != 0)
+            if ((this->m_format & 0x10000000) != 0) // Cubemap
             {
                 g_Direct3DDevice()
                     ->lpVtbl->CreateCubeTexture(g_Direct3DDevice(),
@@ -1393,6 +1396,14 @@ void nglTexture::CreateTextureOrSurface()
             }
             else
             {
+                if constexpr (FORCE_MIPS) {
+                    if (pool == D3DPOOL_DEFAULT) {
+                        this->m_numLevel = 0;
+                        levels = 0;
+                        usage |= D3DUSAGE_AUTOGENMIPMAP;
+                    }
+                }
+
                 g_Direct3DDevice()->lpVtbl->CreateTexture(g_Direct3DDevice(),
                                                           this->m_width,
                                                           this->m_height,
@@ -1402,6 +1413,13 @@ void nglTexture::CreateTextureOrSurface()
                                                           pool,
                                                           &this->DXTexture,
                                                           nullptr);
+
+                if constexpr (FORCE_MIPS) {
+                    if (pool == D3DPOOL_DEFAULT && this->DXTexture) {
+                        IDirect3DBaseTexture9* baseTex = reinterpret_cast<IDirect3DBaseTexture9*>(this->DXTexture);
+                        baseTex->lpVtbl->GenerateMipSubLevels(baseTex);
+                    }
+                }
             }
 
             ++nglDebug().field_C;
@@ -2367,8 +2385,9 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 {
     TRACE("nglLoadMeshFileInternal", FileName.to_string());
 
-    if constexpr (1)
+    if constexpr (0)
     {
+
         nglMeshFileHeader *Header = CAST(Header, MeshFile->FileBuf.Buf);
 
         MeshFile->field_134 = (int) Header;
