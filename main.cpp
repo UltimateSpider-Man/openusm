@@ -298,6 +298,8 @@
 #include "info_node.h"
 #include "entity_base_vhandle.h"
 
+namespace fs = std::filesystem;
+
 std::map<uint32_t, Mod> Mods;
 
 void register_class_and_create_window(LPCSTR lpClassName,
@@ -5190,8 +5192,7 @@ BOOL install_redirects()
 
     return TRUE;
 }
-#include <filesystem>
-namespace fs = std::filesystem;
+
 
 std::vector<uint8_t> read_file(const fs::path& filePath) {
     std::ifstream file(filePath, std::ios::binary);
@@ -5218,22 +5219,19 @@ void enumerate_mods() {
             std::vector<uint8_t> fileData = read_file(path);
 
             tlresource_type resType = TLRESOURCE_TYPE_NONE;
-            std::string ext = path.extension().string();
-            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+            std::string ext = transformToLower(path.extension().string());
             if (ext == ".dds" || ext == ".tga") {
                 resType = TLRESOURCE_TYPE_TEXTURE;
             }
 
             auto hash = to_hash(path.stem().string().c_str());
-            Mods[hash] = Mod{resType, std::move(fileData)};
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
             printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
         }
     }
 }
 
 BOOL install_hooks() {
-    
-
     return set_text_to_writable() && install_redirects() && install_patches() &&
         restore_text_perms();
 }

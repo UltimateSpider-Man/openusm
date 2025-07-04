@@ -38,8 +38,10 @@ struct tlresource_location {
 };
 
 #include <map>
+#include <filesystem>
 
 struct Mod {
+    std::filesystem::path Path;
     tlresource_type Type;
     std::vector<uint8_t> Data;
 };
@@ -59,5 +61,23 @@ extern std::map<uint32_t, Mod> Mods;
     if (hasMod(hash))
         if (auto mod = getMod(hash))
             return &mod->Data.data()[0];
+    return nullptr;
+}
+
+[[maybe_unused]] static std::string transformToLower(const std::string& name)
+{
+    std::string res = name;
+    std::transform(res.begin(), res.end(), res.begin(), [](unsigned char c) { return std::tolower(c); });
+    return res;
+}
+
+// this is O(n) (don't use this unless necessary!)
+[[maybe_unused]] static Mod* getModByFilemame(const std::string& name) {
+    std::string search = transformToLower(name);
+    for (auto& [hash, mod] : Mods) {
+        std::string filename = transformToLower(mod.Path.filename().string());
+        if (filename == search)
+            return &mod;
+    }
     return nullptr;
 }
