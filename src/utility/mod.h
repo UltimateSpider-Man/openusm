@@ -1,4 +1,5 @@
 #pragma once
+#include <d3d9.h>
 
 #include <cstdint>
 
@@ -10,7 +11,21 @@ struct Mod {
     int Type;
     std::vector<uint8_t> Data;
 };
+
+struct modGenericMesh {
+    std::vector<float> vertices;
+    std::vector<uint16_t> indices;
+    IDirect3DVertexBuffer9* vertexBuffer = nullptr;
+    IDirect3DIndexBuffer9* indexBuffer = nullptr;
+    UINT stride = 16;
+    UINT numVertices = 0;
+    UINT numIndices = 0;
+};
+
+
 extern std::map<uint32_t, Mod> Mods;
+extern Mod* dbgReplaceMesh;
+
 
 [[maybe_unused]] static bool hasMod(uint32_t hash) {
     return Mods.find(hash) != Mods.end();

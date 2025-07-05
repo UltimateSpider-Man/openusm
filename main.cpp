@@ -298,6 +298,7 @@
 #include "info_node.h"
 #include "entity_base_vhandle.h"
 
+
 namespace fs = std::filesystem;
 
 std::map<uint32_t, Mod> Mods;
@@ -409,10 +410,15 @@ BOOL install_patches()
         set_vfunc(0x00888A44, address);
         
         {
-
             FUNC_ADDRESS(address, &nglTexture::CreateTextureOrSurface);
             SET_JUMP(0x00775000, address);
         }
+
+        {
+            HRESULT(*func)(nglMeshSection*) = &nglSetStreamSourceAndDrawPrimitive;
+            SET_JUMP(0x00771AF0, func);
+        }
+
 
         // these funcs mysteriously are only used for TGA
         // and kinda look like it too, but I don't see em being used...

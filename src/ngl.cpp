@@ -5468,7 +5468,7 @@ void nglRenderTextureState::setSamplerState(
 {
     if constexpr (0)
     {
-        if ( (a3 & 2) != 0 )
+        if ( (a3 & 2) != 0 )            // Linear + Point
         {
             if ( this->field_20[0][stage] == 2 )
             {
@@ -5478,7 +5478,7 @@ void nglRenderTextureState::setSamplerState(
                 this->field_20[0][stage] = 2;
             }
         }
-        else if ( (a3 & 4) != 0 )
+        else if ( (a3 & 4) != 0 )       // Trilinear
         {
             if ( this->field_20[0][stage] == 4 )
             {
@@ -5488,7 +5488,7 @@ void nglRenderTextureState::setSamplerState(
                 this->field_20[0][stage] = 4;
             }
         }
-        else if ((a3 & 8) != 0)
+        else if ((a3 & 8) != 0)         // Anisotropic
         {
             if ( this->field_20[0][stage] != 8 )
             {
@@ -5505,7 +5505,7 @@ void nglRenderTextureState::setSamplerState(
 
             nglSetSamplerState(stage, D3DSAMP_MAXANISOTROPY, MaxAnisotropy);
         }
-        else if ( this->field_20[0][stage] != 1 )
+        else if ( this->field_20[0][stage] != 1 )   // Point Filter
         {
             nglSetSamplerState(stage, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
             nglSetSamplerState(stage, D3DSAMP_MINFILTER, D3DTEXF_POINT);
