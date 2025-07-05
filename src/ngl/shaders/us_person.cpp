@@ -1293,6 +1293,11 @@ void USPersonNode::RenderWithDisableShader()
     }
     else
     {
+        if (this->m_meshNode) {
+            if (this->m_meshNode->field_88->Name)
+                dbgReplaceMesh = getMod(this->m_meshNode->field_88->Name->m_hash);
+        }
+
         THISCALL(0x0041D180, this);
     }
 }
