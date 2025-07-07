@@ -15,6 +15,7 @@ struct Mod {
 struct modGenericMesh {
     std::vector<float> vertices;
     std::vector<uint16_t> indices;
+    std::vector<float> normals;
     IDirect3DVertexBuffer9* vertexBuffer = nullptr;
     IDirect3DIndexBuffer9* indexBuffer = nullptr;
     UINT stride = 16;

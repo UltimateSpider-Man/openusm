@@ -2401,11 +2401,11 @@ modGenericMesh modMesh;
 
 bool LoadOBJModelToBuffers(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t size) {
     if (!buf || size == 0) return false;
-    if (data.loaded) return true;
 
     std::istringstream iss(std::string(buf, size));
     std::vector<float> positions;
     std::vector<uint16_t> indices;
+    std::vector<float> normals;
     std::string line;
 
     while (std::getline(iss, line)) {
@@ -2423,6 +2423,11 @@ bool LoadOBJModelToBuffers(IDirect3DDevice9* dev, modGenericMesh& data, char* bu
             uint16_t a, b, c;
             ls >> a >> b >> c;
             indices.push_back(a - 1); indices.push_back(b - 1); indices.push_back(c - 1);
+        }
+        else if (type == "vn") {
+            float x,y,z;
+            ls >> x >> y >> z;
+            normals.push_back(x); normals.push_back(y); normals.push_back(z);
         }
     }
 
@@ -2452,15 +2457,13 @@ bool LoadOBJModelToBuffers(IDirect3DDevice9* dev, modGenericMesh& data, char* bu
 
     data.indexBuffer->lpVtbl->Unlock(data.indexBuffer);
 
-
-
     // update
     data.vertices = std::move(positions);
     data.indices = std::move(indices);
+    data.normals = std::move(normals);
     data.stride = 16;
     data.numVertices = static_cast<UINT>(data.vertices.size() / 4);
     data.numIndices = static_cast<UINT>(data.indices.size());
-    data.loaded = true;
     return true;
 }
 bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFile, const char *ext)
@@ -2554,7 +2557,7 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
                 nglMaterialBase *Material = dir_entry.field_4.Material;
 
                 PTR_OFFSET(Base, Material->Name);
-                sp_log("material_name = %s", Material->Name->to_string());
+                //sp_log("material_name = %s", Material->Name->to_string());
 
                 PTR_OFFSET(Base, Material->m_shader);
 
@@ -2572,7 +2575,7 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
                 {
                     auto *v17 = bit_cast<tlFixedString *>(Material->m_shader);
                     tlHashString a2 = v17->m_hash;
-                    sp_log("0x%08X", v17->m_hash);
+                    //sp_log("0x%08X", v17->m_hash);
 
                     auto *v18 = nglShaderBank.Search(a2);
                     if (v18 != nullptr)
@@ -2670,22 +2673,28 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
                     auto *v28 = MeshSection->Material;
                     MeshSection->StartIndex = 0;
 
-                    if (replacementMesh && LoadOBJModelToBuffers(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size())) {
-                        nglVertexBuffer* vb = &MeshSection->field_3C;
-                        vb->createVertexBufferAndWriteData(modMesh.vertices.data(), modMesh.vertices.size() * sizeof(float), 1028);
-                        bit_cast<nglVertexBuffer*>(&MeshSection->m_indexBuffer)
-                            ->createIndexBufferAndWriteData(modMesh.indices.data(), modMesh.indices.size() * sizeof(uint16_t));
 
-                        MeshSection->NVertices = modMesh.numVertices;
-                        MeshSection->NIndices = modMesh.numIndices;
-                        MeshSection->m_stride = modMesh.stride;
-                        MeshSection->m_primitiveType = D3DPT_TRIANGLELIST;
-                        continue; // skip
-                    }
 
                     tlFixedString v112 = v28->m_shader->GetName();
 
-                    auto *v29 = v112.to_string();
+                    auto* v29 = v112.to_string();
+
+
+                    // stride 16 == uslod
+                    if (!strncmp(v29, "uslod", 5u)) {
+                        if (replacementMesh && LoadOBJModelToBuffers(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size())) {
+                            nglVertexBuffer* vb = &MeshSection->field_3C;
+                            vb->createVertexBufferAndWriteData(modMesh.vertices.data(), modMesh.vertices.size() * sizeof(float), 1028);
+                            bit_cast<nglVertexBuffer*>(&MeshSection->m_indexBuffer)
+                                ->createIndexBufferAndWriteData(modMesh.indices.data(), modMesh.indices.size() * sizeof(uint16_t));
+
+                                MeshSection->NVertices = modMesh.numVertices;
+                                MeshSection->NIndices = modMesh.numIndices;
+                                MeshSection->m_stride = modMesh.stride;
+                                MeshSection->m_primitiveType = D3DPT_TRIANGLELIST;
+                                continue; // skip
+                        }
+                    }
 
                     [&v29](auto *MeshSection) -> void {
                         auto func = [](auto *MeshSection)
