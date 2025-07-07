@@ -5256,9 +5256,12 @@ void enumerate_mods() {
 
             tlresource_type resType = TLRESOURCE_TYPE_NONE;
             std::string ext = transformToLower(path.extension().string());
-            if (ext == ".dds" || ext == ".tga") {
+            if (ext == ".dds" || ext == ".tga")
                 resType = TLRESOURCE_TYPE_TEXTURE;
-            }
+            else if (ext == ".obj")
+                resType = TLRESOURCE_TYPE_MESH;
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
 
             auto hash = to_hash(path.stem().string().c_str());
             Mods[hash] = Mod{path, resType, std::move(fileData)};

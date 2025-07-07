@@ -8,7 +8,7 @@
 
 struct Mod {
     std::filesystem::path Path;
-    int Type;
+    int Type;       // 1 = tex, 2 = mesh, 3 = (custom) mesh
     std::vector<uint8_t> Data;
 };
 
@@ -31,10 +31,17 @@ extern Mod* dbgReplaceMesh;
     return Mods.find(hash) != Mods.end();
 }
 
-[[maybe_unused]] static Mod* getMod(uint32_t hash) {
-    auto it = Mods.find(hash);
-    if (it != Mods.end())
-        return &it->second;
+[[maybe_unused]] static Mod* getMod(uint32_t hash, int type = -1) {
+    if (type == -1) {
+        auto it = Mods.find(hash);
+        if (it != Mods.end())
+            return &it->second;
+    }
+    else {
+        for (auto& [ihash, mod] : Mods)
+            if (hash == ihash && mod.Type == type)
+                return &mod;
+    }
     return nullptr;
 }
 [[maybe_unused]] static uint8_t* getModDataByHash(uint32_t hash) {

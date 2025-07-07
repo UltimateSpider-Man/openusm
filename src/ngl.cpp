@@ -2387,6 +2387,12 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 
     if constexpr (0)
     {
+        // @todo *mesh replacement
+        if (auto mod = getMod(MeshFile->FileName.m_hash, TLRESOURCE_TYPE_MESH_FILE))
+        {
+            MeshFile->FileBuf.Buf = (uint8_t*)mod->Data.data();
+            MeshFile->FileBuf.Size = mod->Data.size();
+        }
 
         nglMeshFileHeader *Header = CAST(Header, MeshFile->FileBuf.Buf);
 
