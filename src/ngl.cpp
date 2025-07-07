@@ -466,7 +466,7 @@ bool nglVertexBuffer::createIndexBufferAndWriteData(const void *a2, int size)
 
     bool result = false;
 
-    if constexpr (1)
+    if constexpr (0)
     {
         if (createIndexOrVertexBuffer(this, ResourceType::IndexBuffer, size, 0, 0, D3DPOOL_DEFAULT)) {
             return false;
@@ -698,128 +698,144 @@ HRESULT nglVertexBuffer::createIndexOrVertexBuffer(nglVertexBuffer *a1,
                                                             uint32_t fvf,
                                                             D3DPOOL pool)
 {
+    HRESULT result;
     TRACE("nglVertexBuffer::createIndexOrVertexBuffer");
 
-    if (resource_type == ResourceType::VertexBuffer && pool == D3DPOOL_DEFAULT) {
-        sub_781F80(a1, size, usage);
-    }
+    if constexpr (0) {
 
-    int num;
-    if (usage & D3DUSAGE_DYNAMIC) {
-        num = 20;
-    } else if (size >= 1000) {
-        if (size >= 10000) {
-            num = 19;
-        } else {
-            num = size / 1000 + 9;
+        if (resource_type == ResourceType::VertexBuffer && pool == D3DPOOL_DEFAULT) {
+            sub_781F80(a1, size, usage);
         }
-    } else {
-        num = size / 100;
-    }
 
-    const auto start_idx = 21 * resource_type;
+        int num;
+        if (usage & D3DUSAGE_DYNAMIC) {
+            num = 20;
+        }
+        else if (size >= 1000) {
+            if (size >= 10000) {
+                num = 19;
+            }
+            else {
+                num = size / 1000 + 9;
+            }
+        }
+        else {
+            num = size / 100;
+        }
 
-    const auto end_idx = start_idx + num;
+        const auto start_idx = 21 * resource_type;
 
-    HRESULT result;
+        const auto end_idx = start_idx + num;
 
-    struct Struct_77B1C0 {
-        int field_0;
-        void *m_buffer;
-        int field_8;
-        Struct_77B1C0 *field_C;
-        Struct_77B1C0 *field_10;
-        int m_size;
-    };
 
-    static Var<Struct_77B1C0 *[42]> dword_9753C0 { 0x009753C0 };
+        struct Struct_77B1C0 {
+            int field_0;
+            void* m_buffer;
+            int field_8;
+            Struct_77B1C0* field_C;
+            Struct_77B1C0* field_10;
+            int m_size;
+        };
 
-    static Var<Struct_77B1C0 *[42]> dword_975318 { 0x00975318 };
+        static Var<Struct_77B1C0* [42]> dword_9753C0{ 0x009753C0 };
 
-    auto **v11 = dword_975318() + end_idx;
+        static Var<Struct_77B1C0* [42]> dword_975318{ 0x00975318 };
 
-    auto *v10 = *v11;
-    if (v10 != nullptr) {
-        Struct_77B1C0 *v13;
+        auto** v11 = dword_975318() + end_idx;
 
-        while (1) {
-            v13 = *v11;
-            if (v13 != nullptr) {
-                break;
+        auto* v10 = *v11;
+        if (v10 != nullptr) {
+            Struct_77B1C0* v13;
+
+            while (1) {
+                v13 = *v11;
+                if (v13 != nullptr) {
+                    break;
+                }
+
+            LABEL_16:
+                if (num < 19) {
+                    ++v11;
+                    ++num;
+
+                    if (*v11 != nullptr) {
+                        continue;
+                    }
+                }
+
+                goto LABEL_18;
             }
 
-        LABEL_16:
-            if (num < 19) {
-                ++v11;
-                ++num;
-
-                if (*v11 != nullptr) {
-                    continue;
+            while (v13->m_size < size) {
+                v13 = v13->field_10;
+                if (v13 == nullptr) {
+                    goto LABEL_16;
                 }
             }
 
-            goto LABEL_18;
-        }
+            auto* v16 = v13->field_C;
+            if (v16 != nullptr) {
+                auto* v17 = v13->field_10;
+                if (v17 != nullptr) {
+                    v16->field_10 = v17;
+                    v13->field_10->field_C = v13->field_C;
+                }
+                else {
+                    v13->field_C->field_10 = nullptr;
 
-        while (v13->m_size < size) {
-            v13 = v13->field_10;
-            if (v13 == nullptr) {
-                goto LABEL_16;
+                    dword_9753C0()[start_idx + num] = v13->field_C;
+                }
+            }
+            else if (v13->field_10 != nullptr) {
+                v13->field_10->field_C = nullptr;
+
+                dword_975318()[start_idx + num] = v13->field_10;
+            }
+            else {
+                auto v18 = start_idx + num;
+                dword_975318()[v18] = nullptr;
+                dword_9753C0()[v18] = nullptr;
+            }
+
+            auto* v19 = v13->m_buffer;
+            if (resource_type == ResourceType::IndexBuffer) {
+                a1->m_indexBuffer = CAST(a1->m_indexBuffer, v19);
+            }
+            else {
+                a1->m_vertexBuffer = CAST(a1->m_vertexBuffer, v19);
+            }
+
+            operator delete(v13);
+
+            static Var<int[2]> dword_975474{ 0x00975474 };
+            --dword_975474()[resource_type];
+            result = 0;
+        }
+        else {
+        LABEL_18:
+            if (resource_type) {
+                result = g_Direct3DDevice()->lpVtbl->CreateIndexBuffer(g_Direct3DDevice(),
+                    size,
+                    0,
+                    D3DFMT_INDEX16,
+                    D3DPOOL_MANAGED,
+                    &a1->m_indexBuffer,
+                    nullptr);
+            }
+            else {
+                result = g_Direct3DDevice()->lpVtbl->CreateVertexBuffer(g_Direct3DDevice(),
+                    size,
+                    usage,
+                    fvf,
+                    pool,
+                    &a1->m_vertexBuffer,
+                    nullptr);
             }
         }
-
-        auto *v16 = v13->field_C;
-        if (v16 != nullptr) {
-            auto *v17 = v13->field_10;
-            if (v17 != nullptr) {
-                v16->field_10 = v17;
-                v13->field_10->field_C = v13->field_C;
-            } else {
-                v13->field_C->field_10 = nullptr;
-
-                dword_9753C0()[start_idx + num] = v13->field_C;
-            }
-        } else if (v13->field_10 != nullptr) {
-            v13->field_10->field_C = nullptr;
-
-            dword_975318()[start_idx + num] = v13->field_10;
-        } else {
-            auto v18 = start_idx + num;
-            dword_975318()[v18] = nullptr;
-            dword_9753C0()[v18] = nullptr;
-        }
-
-        auto *v19 = v13->m_buffer;
-        if (resource_type == ResourceType::IndexBuffer) {
-            a1->m_indexBuffer = CAST(a1->m_indexBuffer, v19);
-        } else {
-            a1->m_vertexBuffer = CAST(a1->m_vertexBuffer, v19);
-        }
-
-        operator delete(v13);
-
-        static Var<int[2]> dword_975474{0x00975474};
-        --dword_975474()[resource_type];
-        result = 0;
-    } else {
-    LABEL_18:
-        if (resource_type) {
-            result = g_Direct3DDevice()->lpVtbl->CreateIndexBuffer(g_Direct3DDevice(),
-                                                                   size,
-                                                                   0,
-                                                                   D3DFMT_INDEX16,
-                                                                   D3DPOOL_MANAGED,
-                                                                   &a1->m_indexBuffer,
-                                                                   nullptr);
-        } else {
-            result = g_Direct3DDevice()->lpVtbl->CreateVertexBuffer(g_Direct3DDevice(),
-                                                                    size,
-                                                                    usage,
-                                                                    fvf,
-                                                                    pool,
-                                                                    &a1->m_vertexBuffer,
-                                                                    nullptr);
-        }
+    }
+    else
+    {
+        result = (HRESULT)CDECL_CALL(0x77b440, a1, resource_type, size, usage, fvf, pool);
     }
     return result;
 }
@@ -2380,19 +2396,88 @@ const char *to_string(TypeDirectoryEntry type)
 constexpr bool nglLoadMeshFileInternal_hook = 1;
 
 #ifndef TARGET_XBOX
+Mod* dbgReplaceMesh = nullptr;
+modGenericMesh modMesh;
 
+bool LoadOBJModelToBuffers(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t size) {
+    if (!buf || size == 0) return false;
+    if (data.loaded) return true;
+
+    std::istringstream iss(std::string(buf, size));
+    std::vector<float> positions;
+    std::vector<uint16_t> indices;
+    std::string line;
+
+    while (std::getline(iss, line)) {
+        std::istringstream ls(line);
+        std::string type;
+        ls >> type;
+
+        if (type == "v") {
+            float x, y, z;
+            ls >> x >> y >> z;
+            positions.push_back(x); positions.push_back(y); positions.push_back(z);
+            positions.push_back(0xFFFFFFFF);
+        }
+        else if (type == "f") {
+            uint16_t a, b, c;
+            ls >> a >> b >> c;
+            indices.push_back(a - 1); indices.push_back(b - 1); indices.push_back(c - 1);
+        }
+    }
+
+    UINT vertexSize = positions.size() * sizeof(float);
+    UINT indexSize = indices.size() * sizeof(uint16_t);
+    auto device = g_Direct3DDevice()->lpVtbl;
+    if (FAILED(device->CreateVertexBuffer(g_Direct3DDevice(), vertexSize, 0, 0, D3DPOOL_DEFAULT, &data.vertexBuffer, nullptr)))
+        return false;
+
+    void* vbData;
+    if (FAILED(data.vertexBuffer->lpVtbl->Lock(data.vertexBuffer, 0, vertexSize, &vbData, 0)))
+        return false;
+
+    memcpy(vbData, positions.data(), vertexSize);
+
+    data.vertexBuffer->lpVtbl->Unlock(data.vertexBuffer);
+
+
+    if (FAILED(device->CreateIndexBuffer(g_Direct3DDevice(), indexSize, 0, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &data.indexBuffer, nullptr)))
+        return false;
+
+    void* ibData;
+    if (FAILED(data.indexBuffer->lpVtbl->Lock(data.indexBuffer, 0, indexSize, &ibData, 0)))
+        return false;
+
+    memcpy(ibData, indices.data(), indexSize);
+
+    data.indexBuffer->lpVtbl->Unlock(data.indexBuffer);
+
+
+
+    // update
+    data.vertices = std::move(positions);
+    data.indices = std::move(indices);
+    data.stride = 16;
+    data.numVertices = static_cast<UINT>(data.vertices.size() / 4);
+    data.numIndices = static_cast<UINT>(data.indices.size());
+    data.loaded = true;
+    return true;
+}
 bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFile, const char *ext)
 {
     TRACE("nglLoadMeshFileInternal", FileName.to_string());
 
-    if constexpr (0)
+    if constexpr (1)
     {
+#if 1
         // @todo *mesh replacement
         if (auto mod = getMod(MeshFile->FileName.m_hash, TLRESOURCE_TYPE_MESH_FILE))
         {
-            MeshFile->FileBuf.Buf = (uint8_t*)mod->Data.data();
+            MeshFile->FileBuf.Buf = (char*)mod->Data.data();
             MeshFile->FileBuf.Size = mod->Data.size();
         }
+
+        Mod* replacementMesh = getMod(MeshFile->FileName.m_hash, TLRESOURCE_TYPE_MESH);
 
         nglMeshFileHeader *Header = CAST(Header, MeshFile->FileBuf.Buf);
 
@@ -2445,14 +2530,14 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
         MeshFile->FirstMorph = nullptr;
 
         uint32_t num_dir_entries = Header->NDirectoryEntries;
-        sp_log("num_dir_entries = %d", num_dir_entries);
+        //sp_log("num_dir_entries = %d", num_dir_entries);
 
         nglMesh *LastMesh = nullptr;
         nglMaterialBase *LastMaterial = nullptr;
         nglMorphSet *prevMorph = nullptr;
 
         auto *dir_entries = Header->DirectoryEntries;
-        sp_log("0x%08X", dir_entries);
+        //sp_log("0x%08X", dir_entries);
 
         std::for_each(dir_entries, dir_entries + num_dir_entries,
                 [&](auto &dir_entry)
@@ -2461,7 +2546,7 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
             PTR_OFFSET(Base, dir_entry.field_8);
 
             auto dir_entry_type = dir_entry.field_3;
-            sp_log("dir_entry_type = %s", to_string(dir_entry_type));
+            //sp_log("dir_entry_type = %s", to_string(dir_entry_type));
 
             switch (dir_entry_type) {
             case TypeDirectoryEntry::MATERIAL: {
@@ -2584,6 +2669,19 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 
                     auto *v28 = MeshSection->Material;
                     MeshSection->StartIndex = 0;
+
+                    if (replacementMesh && LoadOBJModelToBuffers(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size())) {
+                        nglVertexBuffer* vb = &MeshSection->field_3C;
+                        vb->createVertexBufferAndWriteData(modMesh.vertices.data(), modMesh.vertices.size() * sizeof(float), 1028);
+                        bit_cast<nglVertexBuffer*>(&MeshSection->m_indexBuffer)
+                            ->createIndexBufferAndWriteData(modMesh.indices.data(), modMesh.indices.size() * sizeof(uint16_t));
+
+                        MeshSection->NVertices = modMesh.numVertices;
+                        MeshSection->NIndices = modMesh.numIndices;
+                        MeshSection->m_stride = modMesh.stride;
+                        MeshSection->m_primitiveType = D3DPT_TRIANGLELIST;
+                        continue; // skip
+                    }
 
                     tlFixedString v112 = v28->m_shader->GetName();
 
@@ -2868,14 +2966,15 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 
         Header->field_10 = (int) MeshFile->FileBuf.Buf;
         return true;
+#endif
     }
     else
     {
-        bool (*func)(const tlFixedString *, nglMeshFile *, const char *) = CAST(func, 0x0076F500);
-        auto result = func(&FileName, MeshFile, ext);
-
-        return result;
+        bool (*func)(const tlFixedString &, nglMeshFile *, const char *) = CAST(func, 0x0076F500);
+        auto result = func(FileName, MeshFile, ext);
     }
+    return true;
+
 }
 #endif
 

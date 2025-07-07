@@ -419,6 +419,7 @@ BOOL install_patches()
             SET_JUMP(0x00771AF0, func);
         }
 
+        REDIRECT(0x0056BDAA, nglLoadMeshFileInternal);
 
         // these funcs mysteriously are only used for TGA
         // and kinda look like it too, but I don't see em being used...
