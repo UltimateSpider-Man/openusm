@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
+include(ExternalProject)
 include(cmake/i686-pc-mingw32.cmake)
 
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-static -std=gnu11 -g")
@@ -282,6 +283,28 @@ target_include_directories(tx PUBLIC "include" "src")
 target_include_directories(ngl_dx PUBLIC "include" "src")
 
 
+# Assimp lib
+ExternalProject_Add(
+    AssimpProject
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/assimp
+    BINARY_DIR ${CMAKE_BINARY_DIR}/assimp-build
+    CMAKE_ARGS 
+        -DCMAKE_TOOLCHAIN_FILE=${CMAKE_SOURCE_DIR}/cmake/i686-pc-mingw32.cmake
+        -DCMAKE_BUILD_TYPE=Release
+        -DASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT=OFF
+        -DASSIMP_BUILD_OBJ_IMPORTER=ON
+        -DASSIMP_BUILD_ASSIMP_TOOLS=OFF
+        -DASSIMP_BUILD_TESTS=OFF
+        -DASSIMP_NO_EXPORT=ON
+        -DBUILD_SHARED_LIBS=OFF
+        -DCMAKE_CXX_FLAGS=-static-libgcc\ -static-libstdc++
+    INSTALL_COMMAND ""
+)
+target_include_directories(binkw32 PUBLIC "./assimp/include/")
+target_link_directories(binkw32 PUBLIC ${CMAKE_BINARY_DIR}/assimp-build/lib)
+add_dependencies(binkw32 AssimpProject)
+
+
 target_include_directories(test_tx PUBLIC "include" "src")
 
 target_link_libraries(ngl_dx PUBLIC d3dx9)
@@ -290,7 +313,7 @@ target_link_directories(binkw32 PUBLIC ${CMAKE_FIND_ROOT_PATH}/include)
 target_link_directories(binkw32 PUBLIC ${CMAKE_FIND_ROOT_PATH}/lib)
 target_link_libraries(binkw32 PUBLIC physics)
 target_link_libraries(binkw32 PUBLIC charanimtype mash chuck nfl ngl nal nsl utility)
-target_link_libraries(binkw32 PUBLIC winmm psapi d3d9 dinput8 dxguid dsound)
+target_link_libraries(binkw32 PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp)
 
 
 if(USE_GLM)
