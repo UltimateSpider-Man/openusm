@@ -2485,9 +2485,9 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
     for (unsigned int f = 0; f < mesh->mNumFaces; ++f) {
         const aiFace& face = mesh->mFaces[f];
         if (face.mNumIndices == 3) {
-            indices.push_back(static_cast<uint16_t>(face.mIndices[0]));
-            indices.push_back(static_cast<uint16_t>(face.mIndices[1]));
             indices.push_back(static_cast<uint16_t>(face.mIndices[2]));
+            indices.push_back(static_cast<uint16_t>(face.mIndices[1]));
+            indices.push_back(static_cast<uint16_t>(face.mIndices[0]));
         }
     }
 
