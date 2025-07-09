@@ -291,12 +291,14 @@ ExternalProject_Add(
     CMAKE_ARGS 
         -DCMAKE_TOOLCHAIN_FILE=${CMAKE_SOURCE_DIR}/cmake/i686-pc-mingw32.cmake
         -DCMAKE_BUILD_TYPE=Release
-        -DASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT=OFF
-        -DASSIMP_BUILD_OBJ_IMPORTER=ON
+        -DASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT=ON
         -DASSIMP_BUILD_ASSIMP_TOOLS=OFF
         -DASSIMP_BUILD_TESTS=OFF
-        -DASSIMP_NO_EXPORT=ON
+        -DASSIMP_NO_EXPORT=OFF
         -DBUILD_SHARED_LIBS=OFF
+        -DASSIMP_BUILD_ZLIB=ON
+        -DASSIMP_BUILD_SAMPLES=OFF
+        -DASSIMP_OPT_BUILD_PACKAGES=OFF
         -DCMAKE_CXX_FLAGS=-static-libgcc\ -static-libstdc++
     INSTALL_COMMAND ""
 )
@@ -313,7 +315,7 @@ target_link_directories(binkw32 PUBLIC ${CMAKE_FIND_ROOT_PATH}/include)
 target_link_directories(binkw32 PUBLIC ${CMAKE_FIND_ROOT_PATH}/lib)
 target_link_libraries(binkw32 PUBLIC physics)
 target_link_libraries(binkw32 PUBLIC charanimtype mash chuck nfl ngl nal nsl utility)
-target_link_libraries(binkw32 PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp)
+target_link_libraries(binkw32 PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z)
 
 
 if(USE_GLM)
