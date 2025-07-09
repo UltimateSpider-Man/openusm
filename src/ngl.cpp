@@ -67,6 +67,13 @@
 
 #include <d3dx9shader.h>
 
+#if MOD_MESH_SUPPORT
+#   include <assimp/Importer.hpp>
+#   include <assimp/scene.h>
+#   include <assimp/postprocess.h>
+Mod* dbgReplaceMesh = nullptr;
+#endif
+
 VALIDATE_SIZE(nglMeshNode, 0x98);
 
 VALIDATE_SIZE(nglFont, 0x54);
@@ -2396,105 +2403,96 @@ const char *to_string(TypeDirectoryEntry type)
 constexpr bool nglLoadMeshFileInternal_hook = 1;
 
 #ifndef TARGET_XBOX
-Mod* dbgReplaceMesh = nullptr;
-modGenericMesh modMesh;
-
-bool LoadOBJModelToBuffers(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t size, std::string shaderName) {
+bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t size, std::string shaderName) {
     if (!buf || size == 0) return false;
 
-    std::istringstream iss(std::string(buf, size));
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFileFromMemory(buf, size,   aiProcess_Triangulate           |
+                                                                    aiProcess_GenSmoothNormals      |
+                                                                    aiProcess_CalcTangentSpace      |
+                                                                    aiProcess_JoinIdenticalVertices |
+                                                                    aiProcess_ImproveCacheLocality  |
+                                                                    aiProcess_ConvertToLeftHanded);
 
-    struct Vertex { float px, py, pz, nx, ny, nz, u, v; };
-    std::vector<Vertex> finalVerts;
-    std::vector<float> positions;
-    std::vector<uint16_t> indices;
-    std::vector<float> normals, uvs;
+    if (!scene || !scene->HasMeshes()) return false;
 
-    bool useNormals = false, useUVs = false;
+    const aiMesh* mesh = scene->mMeshes[0];
+
+    // determine the layout of the vb
     UINT stride = 16;
     if (shaderName.find("uslod") != std::string::npos) {
         stride = 16;
     }
-    else if (shaderName.find("us_character") != std::string::npos || shaderName.find("usperson") != std::string::npos) {
-        stride = 32;
-        useNormals = true;
-        useUVs = true;
+    else if (shaderName.find("us_character") != std::string::npos || 
+             shaderName.find("usperson") != std::string::npos || 
+             shaderName.find("uspersonsolid") != std::string::npos) {
+
+        stride = 64;
     }
+    const bool hasFullVB = stride == 64;
 
-    std::string line;
-    while (std::getline(iss, line)) {
-        std::istringstream ls(line);
-        std::string type;
-        ls >> type;
+    // fill buffers
+    std::vector<float> vertices;
+    std::vector<uint16_t> indices;
 
-        if (type == "v") {
-            float x, y, z; ls >> x >> y >> z;
-            positions.push_back(x); positions.push_back(y); positions.push_back(z);
-        }
-        else if (type == "vn") {
-            float x, y, z; ls >> x >> y >> z;
-            normals.push_back(x); normals.push_back(y); normals.push_back(z);
-        }
-        else if (type == "vt") {
-            float u, v; ls >> u >> v;
-            uvs.push_back(u); uvs.push_back(1.0f - v);
-        }
-        else if (type == "f") {
-            std::string v[4]; ls >> v[0] >> v[1] >> v[2] >> v[3];
-            uint16_t baseIdx = (uint16_t)finalVerts.size();
+    for (unsigned int i = 0; i < mesh->mNumVertices; ++i) {
+        const aiVector3D& pos = mesh->mVertices[i];
+        vertices.push_back(pos.x);
+        vertices.push_back(pos.y);
+        vertices.push_back(pos.z);
+        if (stride == 16)
+            vertices.push_back(0xFFFFFFFF);
 
-            auto parse = [&](const std::string& token) -> Vertex {
-                Vertex out{};
-                int vi = 0, ti = 0, ni = 0;
-                sscanf(token.c_str(), "%d/%d/%d", &vi, &ti, &ni);
-                vi--, ti--, ni--;
-                out.px = positions[vi * 3];
-                out.py = positions[vi * 3 + 1];
-                out.pz = positions[vi * 3 + 2];
-                out.nx = useNormals && ni >= 0 ? normals[ni * 3] : 0;
-                out.ny = useNormals && ni >= 0 ? normals[ni * 3 + 1] : 0;
-                out.nz = useNormals && ni >= 0 ? normals[ni * 3 + 2] : 0;
-                out.u = useUVs && ti >= 0 ? uvs[ti * 2] : 0;
-                out.v = useUVs && ti >= 0 ? uvs[ti * 2 + 1] : 0;
-                return out;
-            };
-
-            finalVerts.push_back(parse(v[0]));
-            finalVerts.push_back(parse(v[1]));
-            finalVerts.push_back(parse(v[2]));
-            indices.push_back(baseIdx);
-            indices.push_back(baseIdx + 1);
-            indices.push_back(baseIdx + 2);
-
-            if (!v[3].empty()) {
-                finalVerts.push_back(parse(v[0]));
-                finalVerts.push_back(parse(v[2]));
-                finalVerts.push_back(parse(v[3]));
-                indices.push_back(baseIdx + 3);
-                indices.push_back(baseIdx + 4);
-                indices.push_back(baseIdx + 5);
+        if (hasFullVB) {
+            if (mesh->HasNormals()) {
+                const aiVector3D& n = mesh->mNormals[i];
+                vertices.push_back(n.x);
+                vertices.push_back(n.y);
+                vertices.push_back(n.z);
+            }
+            else {
+                vertices.push_back(0.0f);
+                vertices.push_back(0.0f);
+                vertices.push_back(0.0f);
             }
         }
+
+        if (hasFullVB) {
+            if (mesh->HasTextureCoords(0)) {
+                const aiVector3D& uv = mesh->mTextureCoords[0][i];
+                vertices.push_back(uv.x);
+                vertices.push_back(uv.y);
+            }
+            else {
+                vertices.push_back(0.0f);
+                vertices.push_back(0.0f);
+            }
+        }
+
+        if (hasFullVB)
+        {
+            // tmp indices
+            for (int i = 0; i < 4; ++i)
+                vertices.push_back(0x0);
+            
+            // tmp weights
+            vertices.push_back(1.0f);
+            for (int i = 0; i < 3; ++i)
+                vertices.push_back(0.0f);
+        }
     }
 
-    std::vector<float> vertexData;
-    for (const auto& v : finalVerts) {
-        vertexData.push_back(v.px);
-        vertexData.push_back(v.py);
-        vertexData.push_back(v.pz);
-        if (useNormals) {
-            vertexData.push_back(v.nx);
-            vertexData.push_back(v.ny);
-            vertexData.push_back(v.nz);
-        }
-        if (useUVs) {
-            vertexData.push_back(v.u);
-            vertexData.push_back(v.v);
+    for (unsigned int f = 0; f < mesh->mNumFaces; ++f) {
+        const aiFace& face = mesh->mFaces[f];
+        if (face.mNumIndices == 3) {
+            indices.push_back(static_cast<uint16_t>(face.mIndices[0]));
+            indices.push_back(static_cast<uint16_t>(face.mIndices[1]));
+            indices.push_back(static_cast<uint16_t>(face.mIndices[2]));
         }
     }
 
-    UINT vertexSize = vertexData.size() * sizeof(float);
-    UINT indexSize = indices.size() * sizeof(uint16_t);
+    // create vertex buffer
+    UINT vertexSize = vertices.size() * sizeof(float);
     auto device = g_Direct3DDevice()->lpVtbl;
     if (FAILED(device->CreateVertexBuffer(g_Direct3DDevice(), vertexSize, 0, 0, D3DPOOL_DEFAULT, &data.vertexBuffer, nullptr)))
         return false;
@@ -2503,11 +2501,12 @@ bool LoadOBJModelToBuffers(IDirect3DDevice9* dev, modGenericMesh& data, char* bu
     if (FAILED(data.vertexBuffer->lpVtbl->Lock(data.vertexBuffer, 0, vertexSize, &vbData, 0)))
         return false;
 
-    memcpy(vbData, vertexData.data(), vertexSize);
-
+    memcpy(vbData, vertices.data(), vertexSize);
     data.vertexBuffer->lpVtbl->Unlock(data.vertexBuffer);
 
 
+    // create index buffer
+    UINT indexSize = indices.size() * sizeof(uint16_t);
     if (FAILED(device->CreateIndexBuffer(g_Direct3DDevice(), indexSize, 0, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &data.indexBuffer, nullptr)))
         return false;
 
@@ -2516,33 +2515,37 @@ bool LoadOBJModelToBuffers(IDirect3DDevice9* dev, modGenericMesh& data, char* bu
         return false;
 
     memcpy(ibData, indices.data(), indexSize);
-
     data.indexBuffer->lpVtbl->Unlock(data.indexBuffer);
 
-    // update
-    data.vertices = std::move(vertexData);
+    // update game meta
+    data.vertices = std::move(vertices);
     data.indices = std::move(indices);
-    data.normals = std::move(normals);
     data.stride = stride;
-    data.numVertices = static_cast<UINT>(data.vertices.size() * sizeof(float) / stride);
+    data.numVertices = static_cast<UINT>((data.vertices.size() / (stride / sizeof(float))));
     data.numIndices = static_cast<UINT>(data.indices.size());
     return true;
 }
+
 bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFile, const char *ext)
 {
     TRACE("nglLoadMeshFileInternal", FileName.to_string());
 
     if constexpr (1)
     {
-#if 1
-        // @todo *mesh replacement
-        if (auto mod = getMod(MeshFile->FileName.m_hash, TLRESOURCE_TYPE_MESH_FILE))
-        {
-            MeshFile->FileBuf.Buf = (char*)mod->Data.data();
-            MeshFile->FileBuf.Size = mod->Data.size();
-        }
+#       if MOD_MESH_SUPPORT
+            Mod* replacementMesh = getMod(MeshFile->FileName.m_hash, TLRESOURCE_TYPE_MESH_FILE);
 
-        Mod* replacementMesh = getMod(MeshFile->FileName.m_hash, TLRESOURCE_TYPE_MESH);
+            // @todo *mesh replacement
+            // @todo platform
+            if (replacementMesh)
+            {
+                MeshFile->FileBuf.Buf = (char*)replacementMesh->Data.data();
+                MeshFile->FileBuf.Size = replacementMesh->Data.size();
+            }
+            else
+                replacementMesh = getMod(MeshFile->FileName.m_hash, TLRESOURCE_TYPE_MESH);
+
+#       endif
 
         nglMeshFileHeader *Header = CAST(Header, MeshFile->FileBuf.Buf);
 
@@ -2741,19 +2744,26 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 
                     auto* v29 = v112.to_string();
 
-                    if (replacementMesh && LoadOBJModelToBuffers(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size(), v29)) {
-                        nglVertexBuffer* vb = &MeshSection->field_3C;
-                        vb->createVertexBufferAndWriteData(modMesh.vertices.data(), modMesh.vertices.size() * sizeof(float), 1028);
-                        bit_cast<nglVertexBuffer*>(&MeshSection->m_indexBuffer)
-                            ->createIndexBufferAndWriteData(modMesh.indices.data(), modMesh.indices.size() * sizeof(uint16_t));
 
-                        MeshSection->NVertices = modMesh.numVertices;
-                        MeshSection->NIndices = modMesh.numIndices;
-                        MeshSection->m_stride = modMesh.stride;
-                        MeshSection->m_primitiveType = D3DPT_TRIANGLELIST;
-                        continue; // skip
-                    }
+#                   if MOD_MESH_DBG_REPLACE_ALL
+                        if (!replacementMesh)
+                            replacementMesh = dbgReplaceMesh;
+#                   endif
+#                   if MOD_MESH_SUPPORT
+                        modGenericMesh modMesh;
+                        if (replacementMesh && modImportMesh(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size(), v29)) {
+                            nglVertexBuffer* vb = &MeshSection->field_3C;
+                            vb->createVertexBufferAndWriteData(modMesh.vertices.data(), modMesh.vertices.size() * sizeof(float), 1028);
+                            bit_cast<nglVertexBuffer*>(&MeshSection->m_indexBuffer)
+                                ->createIndexBufferAndWriteData(modMesh.indices.data(), modMesh.indices.size() * sizeof(uint16_t));
 
+                            MeshSection->NVertices = modMesh.numVertices;
+                            MeshSection->NIndices = modMesh.numIndices;
+                            MeshSection->m_stride = modMesh.stride;
+                            MeshSection->m_primitiveType = D3DPT_TRIANGLELIST;
+                            continue; // skip
+                        }
+#                   endif
 
                     [&v29](auto *MeshSection) -> void {
                         auto func = [](auto *MeshSection)
@@ -3034,7 +3044,6 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 
         Header->field_10 = (int) MeshFile->FileBuf.Buf;
         return true;
-#endif
     }
     else
     {
