@@ -5261,6 +5261,7 @@ void enumerate_mods() {
                 resType = TLRESOURCE_TYPE_TEXTURE;
             else if (ext == ".obj")
                 resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
             else if (ext == ".pcmesh")  // @todo: other exts
                 resType = TLRESOURCE_TYPE_MESH_FILE;
 
@@ -5269,6 +5270,10 @@ void enumerate_mods() {
             printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
         }
     }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
 }
 
 BOOL install_hooks() {

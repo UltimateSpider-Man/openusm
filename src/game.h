@@ -1,9 +1,11 @@
 #pragma once
 
-#define DEBUG_MENU_REIMPL 1
-#define ENABLE_DEBUG_MENU 1
-#define WINDOWED_MODE_WND_FIX 1
-#define FORCE_MIPS          0
+#define DEBUG_MENU_REIMPL           1
+#define ENABLE_DEBUG_MENU           1
+#define WINDOWED_MODE_WND_FIX       1
+#define FORCE_MIPS                  0
+#define MOD_MESH_SUPPORT            1
+#define MOD_MESH_DBG_REPLACE_ALL    0
 
 #include "color32.h"
 #include "float.hpp"
