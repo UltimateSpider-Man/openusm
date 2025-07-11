@@ -2430,6 +2430,16 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
         stride = 64;
     }
     const bool hasFullVB = stride == 64;
+    
+    // find the first mesh with bones if we need them
+    if (hasFullVB && !mesh->mNumBones) {
+        for (int idx = 0; idx < scene->mNumMeshes; ++idx) {
+            const aiMesh* tmpMesh = scene->mMeshes[idx];
+            if (tmpMesh->mNumBones)
+                mesh = tmpMesh;
+        }
+    }
+
 
     // fill buffers
     std::vector<float> vertices;
@@ -2471,16 +2481,48 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
 
         if (hasFullVB)
         {
-            // tmp indices
-            for (int i = 0; i < 4; ++i)
-                vertices.push_back(0x0);
-            
-            // tmp weights
-            vertices.push_back(1.0f);
-            for (int i = 0; i < 3; ++i)
-                vertices.push_back(0.0f);
+            if (mesh->mNumBones) 
+            {
+                struct VertexBoneData {
+                    uint8_t indices[4] = {};
+                    float weights[4] = {};
+                };
+
+                std::vector<VertexBoneData> vertexBones(mesh->mNumVertices);
+                for (unsigned int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
+                    const aiBone* bone = mesh->mBones[boneIndex];
+
+                    for (unsigned int w = 0; w < bone->mNumWeights; ++w) {
+                        const aiVertexWeight& vw = bone->mWeights[w];
+                        for (int i = 0; i < 4; ++i) {
+                            if (vertexBones[vw.mVertexId].weights[i] == 0.0f) {
+                                vertexBones[vw.mVertexId].indices[i] = static_cast<uint8_t>(boneIndex);
+                                vertexBones[vw.mVertexId].weights[i] = vw.mWeight;
+                                break;
+                            }
+                        }
+                    }
+                }
+                const VertexBoneData& boneData = vertexBones[i];
+                for (int j = 0; j < 4; ++j)
+                    vertices.push_back(static_cast<float>(boneData.indices[j]));
+
+                for (int j = 0; j < 4; ++j)
+                    vertices.push_back(boneData.weights[j]);
+            }
+            // add solid weights, because we need some
+            else
+            {
+                for (int i = 0; i < 4; ++i)
+                    vertices.push_back(0x0);
+                vertices.push_back(1.0f);
+                for (int i = 0; i < 3; ++i)
+                    vertices.push_back(0.0f);
+            }
         }
     }
+
+    // @todo: sanity check num bones/weights
 
     for (unsigned int f = 0; f < mesh->mNumFaces; ++f) {
         const aiFace& face = mesh->mFaces[f];
@@ -2739,14 +2781,11 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
                     MeshSection->StartIndex = 0;
 
 
-
                     tlFixedString v112 = v28->m_shader->GetName();
-
                     auto* v29 = v112.to_string();
 
-
 #                   if MOD_MESH_DBG_REPLACE_ALL
-                        if (!replacementMesh)
+                        if (!replacementMesh && dbgReplaceMesh)
                             replacementMesh = dbgReplaceMesh;
 #                   endif
 #                   if MOD_MESH_SUPPORT
