@@ -1,7 +1,6 @@
 #include "debug_menu.h"
 
 #include "mstring.h"
-// #include "script_instance.h"
 #include "script_object.h"
 #include "string_hash.h"
 #include "vm_executable.h"
@@ -12,10 +11,13 @@
 
 #include <windows.h>
 
+
+
 const char *to_string(debug_menu_entry_type entry_type)
 {
     const char *strings[] = {
         "UNDEFINED",
+        "NORMAL",
         "FLOAT_E",
         "POINTER_FLOAT",
         "INTEGER",
@@ -57,6 +59,16 @@ std::string entry_render_callback_default(debug_menu_entry* entry)
 		auto *str = (val ? "True" : "False");
 		return {str};
 	}
+    case BOOLEAN_NUM: {
+        bool val = entry->get_bval2();
+
+        auto* str = (val ? "True" : "False");
+        return { str };
+    }
+    case POINTER_MENU: {
+        auto* str = (">");
+        return { str };
+    }
     case INTEGER:
     case POINTER_INT:
     {
@@ -72,12 +84,19 @@ std::string entry_render_callback_default(debug_menu_entry* entry)
 
     return std::string{""};
 }
-
 typedef void (*menu_handler_function)(debug_menu_entry*, custom_key_type key_type);
 
 void close_debug();
 
 debug_menu* current_menu = nullptr;
+
+    debug_menu_entry* debug_menu_entry::alloc_block(debug_menu* m, std::size_t n)
+{
+    assert(m->count + n <= m->capacity); // stays inside menu’s buffer
+    debug_menu_entry* block = &m->entries[m->count];
+    m->count += n;
+    return block;
+}
 
 void script_handler_helper(debug_menu_entry *a2)
 {
@@ -88,9 +107,9 @@ void script_handler_helper(debug_menu_entry *a2)
         assert(exe != nullptr);
 
         if ( exe->get_parms_stacksize() == 4 ) {
-            a2->field_14->add_thread(exe, (const char *)&a2);
+            a2->field_14->add_thread_for_debug_menu(exe, (const char *)&a2);
         } else {
-            a2->field_14->add_thread(exe);
+            a2->field_14->add_thread_for_debug_menu(exe);
         }
 
         debug_menu::hide();
@@ -127,6 +146,7 @@ bool debug_menu_entry::set_script_handler(script_instance *inst, const mString &
 
     return result;
 }
+
 
 debug_menu *debug_menu_entry::remove_menu()
 {
@@ -168,10 +188,29 @@ void debug_menu_entry::on_change(float a3, bool a4)
         break;
     }
     case BOOLEAN_E:
-    case POINTER_BOOL:
-    {
+    case POINTER_BOOL: {
         auto v3 = this->get_bval();
         this->set_bval(!v3, true);
+        break;
+    }
+    case BOOLEAN_NUM: {
+        auto v3 = this->get_bval2();
+        // Keep track of which entry was last selected (static persists across calls)
+// Example debug_menu_entry class
+
+// Keep track of the previously selected entry
+        static debug_menu_entry* s_previousEntry = nullptr;
+
+        // If we had a previously selected entry and it’s different from this one, turn it off
+        if (s_previousEntry && s_previousEntry != this) {
+            s_previousEntry->set_bval2(false, true);
+        }
+
+        // Force the newly selected entry to be ON (1)
+        this->set_bval2(true, true);
+
+        // Update the static pointer
+        s_previousEntry = this;
         break;
     }
     case INTEGER:
@@ -222,6 +261,8 @@ void debug_menu_entry::on_select(float a2)
     case BOOLEAN_E:
     case POINTER_BOOL:
         this->on_change(a2, false);
+    case BOOLEAN_NUM:
+        this->on_change(a2, false);
         break;
     case POINTER_MENU:
         this->remove_menu();
@@ -246,11 +287,23 @@ void debug_menu_entry::set_submenu(debug_menu *submenu)
     }
 }
 
+void debug_menu_entry::set_submenu2(debug_menu *submenu)
+{
+    this->entry_type = dUNDEFINED;
+    this->m_value.p_menu = submenu;
+
+    if (submenu != nullptr) {
+        submenu->m_parent = current_menu;
+    }
+}
+
 debug_menu_entry::debug_menu_entry(debug_menu *submenu) : entry_type(POINTER_MENU)
 {
     m_value.p_menu = submenu;
     strncpy(this->text, submenu->title, MAX_CHARS_SAFE);
 }
+
+
 
 void* add_debug_menu_entry(debug_menu* menu, debug_menu_entry* entry)
 {
@@ -267,7 +320,7 @@ void* add_debug_menu_entry(debug_menu* menu, debug_menu_entry* entry)
 		memcpy(ret, entry, sizeof(debug_menu_entry));
 		++menu->used_slots;
 
-        if (entry->entry_type == POINTER_MENU && menu->used_slots > 1) {
+        if (entry->entry_type == NORMAL && menu->used_slots > 1) {
             std::swap(menu->entries[0], menu->entries[menu->used_slots - 1]);
         }
 

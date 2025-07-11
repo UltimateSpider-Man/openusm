@@ -270,10 +270,16 @@ void FrontEndMenuSystem::GoNextState() {
                                                         "TREYARCH_LOGO",
                                                         false)) {
                     movie_manager::load_and_play_movie("beenox_short", nullptr, false);
+										movie_manager::load_and_play_movie("attract", nullptr, false);
+															        static string_hash sfx_id_hash{"FE_MUSIC_MAINMENU"};
+
+        [[maybe_unused]] sound_instance_id id = sub_60B960(sfx_id_hash, 1.0, 1.0);
                 }
 
                 if (this->field_30 != 10) {
                     continue;
+				//	Sleep(10000);
+
                 }
             }
 

@@ -9,35 +9,44 @@
 
 VALIDATE_SIZE(message_board, 0x10);
 
+
+#include "message_board.h"
+
+#include "fetext.h"
+#include "trace.h"
+#include "mstring.h"
+#include "utility.h"
+#include "vector2di.h"
+
+#include <cstring>
+
 void message_board::post(string a1, Float a2, color32 a3)
 {
     TRACE("message_board::post");
 
-    if constexpr (1)
-    {
-        auto &v10 = this->field_0;
+    auto &v10 = this->field_0;
+    printf("%d\n", v10.size());
 
-        uint32_t i;
-        for (i = 0; i < v10.size() && v10.at(i).field_64 != 0.0; ++i) {
-            ;
-        }
-
-        internal v1;
-
-        strncpy(v1.field_0, a1.guts, 99);
-        v1.field_64 = a2;
-        v1.field_68 = a3;
-
-        if (i == v10.size()) {
-            v10.push_back(v1);
-        } else {
-            v10.at(i) = v1;
-        }
-
+    uint32_t i;
+    for (i = 0; i < v10.size() && v10.at(i).field_64 != 0.0; ++i) {
+        ;
     }
-    else
+
+    internal v1;
+
+    strncpy(v1.field_0, a1.guts, 99);
+    v1.field_64 = a2;
+    v1.field_68 = a3;
+
+    if (i == v10.size()) {
+        v10.push_back(v1);
+    } else {
+        v10.at(i) = v1;
+    }
+
     {
-        THISCALL(0x00515EB0, this, a1, a2, a3);
+        void (__fastcall *finalize)(string *, void *, int) = CAST(finalize, 0x004209C0);
+        finalize(&a1, nullptr, 0);
     }
 }
 
@@ -59,9 +68,10 @@ void message_board::frame_advance(float a2)
 void message_board::render()
 {
     TRACE("message_board::render");
-    auto &v15 = this->field_0;
     if constexpr (1)
     {
+        auto &v15 = this->field_0;
+
         int a3 = 390;
         for (auto i = 0u; i < v15.size(); ++i)
         {
@@ -92,7 +102,7 @@ void message_board::render()
 void message_board_patch()
 {
     {
-        FUNC_ADDRESS(address, &message_board::post);
+        auto address = func_address(&message_board::post);
         SET_JUMP(0x00515EB0, address);
     }
 }

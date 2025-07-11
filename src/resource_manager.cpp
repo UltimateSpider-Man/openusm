@@ -22,6 +22,7 @@
 #include "utility.h"
 #include "variables.h"
 #include "worldly_pack_slot.h"
+#include "osassert.h"
 
 #include <cassert>
 #include <numeric>
@@ -118,7 +119,7 @@ make_var(resource_key *, amalgapak_prerequisite_table);
     mString v1{a2[arg4]};
 #endif
     
-    mString v2{"packs\\amalga"};
+    mString v2{"packs\\amalga2"};
 
     mString res = v2 + v1;
 
@@ -158,8 +159,7 @@ void load_amalgapak()
 
         if (!file.is_open()) {
             auto *v1 = amalgapak_name.c_str();
-            sp_log("Could not open amalgapak file %s!", v1);
-            assert(0);
+            error("Could not open amalgapak file %s!", v1);
         }
 
         resource_amalgapak_header pack_file_header{};
@@ -240,32 +240,11 @@ void load_amalgapak()
             sp_log("Using amalgapak found on the CD");
         }
 
-        if constexpr (0)
-        {
-            printf("amalgapak_base_offset = 0x%08X\n", amalgapak_base_offset);
-                            
-            std::for_each(amalgapak_pack_location_table,
-                    amalgapak_pack_location_table + amalgapak_prerequisite_count,
-                    [](auto &pack_loc) {
-                        auto &key = pack_loc.loc.field_0;
-                        {
-                            printf("%s %s 0x%08X %d\n",
-                                    key.get_platform_name(g_platform).c_str(),
-                                    pack_loc.m_name,
-                                    pack_loc.loc.m_offset,
-                                    pack_loc.loc.m_size);
-                            assert(to_hash(pack_loc.m_name) == key.m_hash.source_hash_code);
-                            //pack_loc.loc.m_offset = 0u;
-                        }
-                    });
-
-            assert(0);
-        }
-
     } else {
         CDECL_CALL(0x00537650);
     }
 }
+
 
 void add_resource_pack_modified_callback(void (*callback)(_std::vector<resource_key> &))
 {

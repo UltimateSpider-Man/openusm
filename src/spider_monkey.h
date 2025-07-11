@@ -7,6 +7,7 @@
 #include "float.hpp"
 #include "limited_timer.h"
 #include "variable.h"
+#include "debug_menu.h"
 
 inline Var<bool> god_mode_cheat{ 0x0095A6A8 };
 inline Var<bool> ultra_god_mode_cheat{ 0x0095A6A9 };
@@ -30,7 +31,8 @@ struct spider_monkey {
     //0x004B6690
     static void start();
 
-    static void stop();
+   static void stop();
+
 
     //0x004B6890
     static void render();

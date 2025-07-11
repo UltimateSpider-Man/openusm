@@ -108,7 +108,7 @@ void resource_key::calc_resource_string_and_type_from_path(const char *in_string
 {
     TRACE("resource_key::calc_resource_string_and_type_from_path", in_string);
 
-    assert(in_string != nullptr);
+ //   assert(in_string != nullptr);
     assert(out_string != nullptr);
     assert(type_override != nullptr);
 

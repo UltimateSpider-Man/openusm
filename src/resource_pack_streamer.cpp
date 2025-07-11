@@ -128,7 +128,7 @@ void resource_pack_streamer::load_internal(const char *a2,
         this->field_7C = 0.0;
         this->m_data_size = 0;
         this->curr_slot = this->pack_slots->at(which_slot_idx);
-        assert(curr_slot != nullptr && curr_slot->is_empty());
+      //  assert(curr_slot != nullptr && curr_slot->is_empty());
 
         resource_pack_location pack_location{};
 
@@ -450,9 +450,9 @@ void resource_pack_streamer::load(const char *a2,
 
     auto *which_slot = this->pack_slots->at(which_slot_idx);
 
-    assert(which_slot != nullptr);
+   // assert(which_slot != nullptr);
 
-    assert(which_slot->is_empty());
+  //  assert(which_slot->is_empty());
 
     assert(!this->currently_streaming);
 
@@ -482,7 +482,7 @@ void resource_pack_streamer::load(const char *a2,
                     auto v3 = v10->get_name_key().m_hash;
                     if (v2 == v3) {
                         sp_log("Trying to load pack %s when it is already loaded", a2);
-                        assert(0);
+                 //       assert(0);
                     }
                 }
             }
@@ -641,7 +641,7 @@ void resource_pack_streamer::unload_all() {
 }
 
 void resource_pack_streamer::set_active(bool a2) {
-    assert(!currently_streaming);
+  //  assert(!currently_streaming);
 
     this->active = a2;
 }

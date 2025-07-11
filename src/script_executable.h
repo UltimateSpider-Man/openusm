@@ -80,6 +80,11 @@ struct script_executable {
 
     //0x005A0790
     void remove_allocated_stuff(int a2, uint32_t a3);
+	
+	    void add_allocated_stuff_for_debug_menu(int a2, int a3, int a4) {
+        void  (__fastcall *func)(script_executable *, void *edx, int a2, int a3, int a4) = bit_cast<decltype(func)>(0x005A34B0);
+        func(this, nullptr, a2, a3, a4);
+    }
 
     //0x005A07F0
     int get_total_allocated_stuff(int a2);
