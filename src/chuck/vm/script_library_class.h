@@ -91,10 +91,14 @@ struct script_library_class {
 
     void add_function(script_library_class::function *a2);
 
+
     void add_functions_complete();
 
     //virtual
     uint32_t find_instance(const mString &a1);
+	
+
+
 };
 
 extern void verify_parms_integrity(
