@@ -1,9 +1,9 @@
 #pragma once
 
-#define DEBUG_MENU_REIMPL           1
-#define ENABLE_DEBUG_MENU           1
-#define WINDOWED_MODE_WND_FIX       1
-#define FORCE_MIPS                  0
+#define DEBUG_MENU_REIMPL 1
+#define ENABLE_DEBUG_MENU 1
+#define WINDOWED_MODE_WND_FIX 1
+#define FORCE_MIPS          0
 #define MOD_MESH_SUPPORT            1
 #define MOD_MESH_DBG_REPLACE_ALL    0
 
@@ -185,7 +185,10 @@ struct game {
     }
 
     game_settings *get_game_settings();
+	
 
+	
+	
     void go_next_state();
 
     game_state get_cur_state() const;
@@ -311,6 +314,8 @@ public:
     void push_lores();
 
     void push_process(game_process &process);
+	
+	void render_bar_of_shame();
 
     //0x00557B80
     void render_intros();
