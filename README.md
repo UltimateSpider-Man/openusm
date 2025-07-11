@@ -11,6 +11,8 @@ The engine is not complete and is at the prototyping stage.
 Requiments:
 * Linux or Ubuntu on Windows 10
 * MinGW-w64 compiler
+* zlib1g
+
 
 
 How to build and install:
@@ -24,6 +26,7 @@ How to build and install:
 * `cd build`
 * `make -jN`, where N - how many threads you want to allot for compiling.
 * Copy the compiled `binkw32.dll` from `build` directory to the game's folder.
+* use this command for install zlib1g 'sudo apt-get -y install libz-mingw-w64-dev'
 
 
 License
