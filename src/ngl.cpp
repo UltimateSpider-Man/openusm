@@ -2403,7 +2403,7 @@ const char *to_string(TypeDirectoryEntry type)
 constexpr bool nglLoadMeshFileInternal_hook = 1;
 
 #ifndef TARGET_XBOX
-bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t size, std::string shaderName) {
+bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t size, std::string shaderName, int meshIndex = 0) {
     if (!buf || size == 0) return false;
 
     Assimp::Importer importer;
@@ -2416,8 +2416,6 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
 
     if (!scene || !scene->HasMeshes()) return false;
 
-    const aiMesh* mesh = scene->mMeshes[0];
-
     // determine the layout of the vb
     UINT stride = 16;
     if (shaderName.find("uslod") != std::string::npos) {
@@ -2429,22 +2427,31 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
 
         stride = 64;
     }
-    const bool hasFullVB = stride == 64;
-    
-    // find the first mesh with bones if we need them
-    if (hasFullVB && !mesh->mNumBones) {
-        for (int idx = 0; idx < scene->mNumMeshes; ++idx) {
-            const aiMesh* tmpMesh = scene->mMeshes[idx];
-            if (tmpMesh->mNumBones)
-                mesh = tmpMesh;
-        }
-    }
 
-
-    // fill buffers
+    const aiMesh* mesh = scene->mMeshes[0];
     std::vector<float> vertices;
     std::vector<uint16_t> indices;
+    const bool hasFullVB = stride == 64;
+    
+    // if we're looking for the first mesh, then
+    // find the first mesh with bones if we need them
+    if (hasFullVB && !mesh->mNumBones && !meshIndex) {
+        for (int idx = 0; idx < scene->mNumMeshes; ++idx) {
+            const aiMesh* tmpMesh = scene->mMeshes[idx];
+            if (tmpMesh->mNumBones) {
+                mesh = tmpMesh;
+                break;
+            }
+        }
+    }
+    else
+    {
+        // otherwise if we need a specific mesh, select it or the last one.
+        if (meshIndex != 0)
+            mesh = scene->mMeshes[meshIndex < scene->mNumMeshes ? meshIndex : scene->mNumMeshes - 1];
+    }
 
+    // fill buffers    
     for (unsigned int i = 0; i < mesh->mNumVertices; ++i) {
         const aiVector3D& pos = mesh->mVertices[i];
         vertices.push_back(pos.x);
@@ -2750,6 +2757,8 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
                     nglRebaseMesh(Base, 0, Mesh);
                 }
 
+                // @todo: custom submeshes
+
                 for (auto idx_Section = 0u; idx_Section < Mesh->NSections; ++idx_Section)
                 {
                     Mesh->Sections[idx_Section].field_0 = 1;
@@ -2790,7 +2799,7 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 #                   endif
 #                   if MOD_MESH_SUPPORT
                         modGenericMesh modMesh;
-                        if (replacementMesh && modImportMesh(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size(), v29)) {
+                        if (replacementMesh && modImportMesh(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size(), v29, idx_Section)) {
                             nglVertexBuffer* vb = &MeshSection->field_3C;
                             vb->createVertexBufferAndWriteData(modMesh.vertices.data(), modMesh.vertices.size() * sizeof(float), 1028);
                             bit_cast<nglVertexBuffer*>(&MeshSection->m_indexBuffer)
@@ -2800,6 +2809,7 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
                             MeshSection->NIndices = modMesh.numIndices;
                             MeshSection->m_stride = modMesh.stride;
                             MeshSection->m_primitiveType = D3DPT_TRIANGLELIST;
+                            Mesh->NSections = 1; // @todo: custom submeshes
                             continue; // skip
                         }
 #                   endif
