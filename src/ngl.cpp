@@ -2402,19 +2402,186 @@ const char *to_string(TypeDirectoryEntry type)
 
 constexpr bool nglLoadMeshFileInternal_hook = 1;
 
+//------------------------------------------------------------------------------
+// Very thin, *read‑only* XBXM parsing – enough for Mods/*.xbxm on PC.
+//------------------------------------------------------------------------------
+struct XbxmHeader               // matches “XBXM” file header
+{
+    char     Tag[4];            // "XBXM"
+    uint16_t Version;           // 0x1601 in your Xbox build
+    uint16_t NDirectoryEntries; // # of “chunks”
+    uint32_t RelocOffset;       // file‑relative ptr base (unused – we copy)
+};
+
+struct XbxmDirectoryEntry
+{
+    uint32_t Offset;            // from start of file
+    uint32_t Size;
+    uint8_t  Type;              // 0 = mesh, 1 = material, etc.
+    uint8_t  _pad[3];
+};
+
+// A single mesh section we care about
+struct XbxmMeshSection
+{
+    uint32_t NameHash;          // tlHashString in retail code
+    uint16_t NVertices;
+    uint16_t Stride;            // bytes
+    uint32_t VerticesOffset;    // from start of mesh
+    uint16_t NIndices;
+    uint16_t _pad;
+    uint32_t IndicesOffset;
+};
+
+// Parse just enough to fill vertex / index vectors
+static bool DecodeXbxm(const uint8_t* file,
+                       size_t         size,
+                       std::vector<float>&    outVerts,
+                       std::vector<uint16_t>& outIndices,
+                       uint32_t&              outStride)
+{
+    if (size < sizeof(XbxmHeader)) return false;
+
+    const auto* hdr = reinterpret_cast<const XbxmHeader*>(file);
+    if (strncmp(hdr->Tag, "XBXM", 4) != 0 || hdr->Version != 0x1601)
+        return false;
+
+    if (size < sizeof(XbxmHeader) +
+               hdr->NDirectoryEntries * sizeof(XbxmDirectoryEntry))
+        return false;
+
+    const auto* dir = reinterpret_cast<const XbxmDirectoryEntry*>(hdr + 1);
+
+    // find first mesh entry
+    const uint8_t* meshPtr = nullptr;
+    for (uint16_t i = 0; i < hdr->NDirectoryEntries; ++i)
+    {
+        if (dir[i].Type == /*TypeDirectoryEntry::MESH*/ 1 /* <- adjust if needed */)
+        {
+            if (dir[i].Offset + dir[i].Size > size) return false;
+            meshPtr = file + dir[i].Offset;
+            break;
+        }
+    }
+    if (!meshPtr) return false;
+
+    // read section 0 (XBXM stores one-or-many sections per mesh)
+    const auto* sec = reinterpret_cast<const XbxmMeshSection*>(meshPtr);
+    if (sec->NVertices == 0 || sec->NIndices == 0) return false;
+
+    // Resolve absolute pointers
+    const uint8_t* vtxData = meshPtr + sec->VerticesOffset;
+    const uint8_t* idxData = meshPtr + sec->IndicesOffset;
+
+    // Safety
+    size_t vBytes = size_t(sec->NVertices) * sec->Stride;
+    size_t iBytes = size_t(sec->NIndices) * 2;
+    if (vtxData + vBytes > file + size || idxData + iBytes > file + size)
+        return false;
+
+    // --- copy to our generic containers ------------------------------------
+    outStride = sec->Stride;            // Might be 16, 24, 32, 48… in retail
+    outVerts.resize(vBytes / 4);        // float‑view
+    memcpy(outVerts.data(), vtxData, vBytes);
+
+    outIndices.resize(sec->NIndices);
+    memcpy(outIndices.data(), idxData, iBytes);
+
+    return true;
+}
+
+
 #ifndef TARGET_XBOX
-bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t size, std::string shaderName, int meshIndex = 0) {
-    if (!buf || size == 0) return false;
+// imports a mesh (by optional index) and creates buffers
+// returns number of meshes found within the mesh itself
+int modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t size, std::string shaderName, int meshIndex = 0) {
+    if (!buf || size == 0) return 0;
 
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFileFromMemory(buf, size,   aiProcess_Triangulate           |
-                                                                    aiProcess_GenSmoothNormals      |
-                                                                    aiProcess_CalcTangentSpace      |
-                                                                    aiProcess_JoinIdenticalVertices |
-                                                                    aiProcess_ImproveCacheLocality  |
-                                                                    aiProcess_ConvertToLeftHanded);
+    const aiScene* scene = nullptr;
+    unsigned int loadFlags =    aiProcess_Triangulate |
+                                aiProcess_GenSmoothNormals |
+                                aiProcess_CalcTangentSpace |
+                                aiProcess_JoinIdenticalVertices |
+                                aiProcess_ImproveCacheLocality |
+                                aiProcess_ConvertToLeftHanded;
+								
 
-    if (!scene || !scene->HasMeshes()) return false;
+
+    std::string ext = transformToLower(data.mod->Path.extension().string());
+	
+	if (ext == ".xbxm")
+{
+    std::vector<float>    vertices;
+    std::vector<uint16_t> indices;
+    uint32_t              fileStride = 0;
+
+    if (!DecodeXbxm(reinterpret_cast<const uint8_t*>(buf),
+                    size,
+                    vertices,
+                    indices,
+                    fileStride))
+        return 0;                       // bad or unsupported file
+
+    // Decide the stride that the engine (and shader) must use.
+    //  • If shaderName forces a specific layout → keep that.
+    //  • Otherwise honour the stride coming from the XBMesh blob.
+    UINT stride = fileStride;
+
+    if (shaderName.find("us_character") != std::string::npos  ||
+        shaderName.find("usperson")     != std::string::npos  ||
+        shaderName.find("uspersonsolid")!= std::string::npos)
+        stride = 64;                    // full skinning layout
+    else if (shaderName.find("uslod")   != std::string::npos)
+        stride = 16;                    // stripped LOD layout
+
+    //----------------------------------------------------------------
+    // GPU buffers – identical to the existing code below
+    //----------------------------------------------------------------
+    UINT vertexSize = static_cast<UINT>(vertices.size() * sizeof(float));
+    auto* deviceVT  = g_Direct3DDevice()->lpVtbl;
+    if (FAILED(deviceVT->CreateVertexBuffer(g_Direct3DDevice(), vertexSize, 0, 0,
+                                            D3DPOOL_DEFAULT, &data.vertexBuffer, nullptr)))
+        return 0;
+
+    void* vbPtr = nullptr;
+    if (FAILED(data.vertexBuffer->lpVtbl->Lock(data.vertexBuffer, 0, vertexSize,
+                                               &vbPtr, 0)))
+        return 0;
+    memcpy(vbPtr, vertices.data(), vertexSize);
+    data.vertexBuffer->lpVtbl->Unlock(data.vertexBuffer);
+
+    UINT indexSize = static_cast<UINT>(indices.size() * sizeof(uint16_t));
+    if (FAILED(deviceVT->CreateIndexBuffer(g_Direct3DDevice(), indexSize, 0,
+                                           D3DFMT_INDEX16, D3DPOOL_DEFAULT,
+                                           &data.indexBuffer, nullptr)))
+        return 0;
+
+    void* ibPtr = nullptr;
+    if (FAILED(data.indexBuffer->lpVtbl->Lock(data.indexBuffer, 0, indexSize,
+                                              &ibPtr, 0)))
+        return 0;
+    memcpy(ibPtr, indices.data(), indexSize);
+    data.indexBuffer->lpVtbl->Unlock(data.indexBuffer);
+
+    // ----------------------------------------------------------------
+    // feed back to the caller
+    // ----------------------------------------------------------------
+    data.vertices    = std::move(vertices);
+    data.indices     = std::move(indices);
+    data.stride      = stride;
+    data.numVertices = static_cast<UINT>(data.vertices.size() * sizeof(float) / stride);
+    data.numIndices  = static_cast<UINT>(data.indices.size());
+
+    return 1;                           // XBMesh path finished successfully
+}							
+
+    if (ext != ".fbx")
+        scene = importer.ReadFileFromMemory(buf, size, loadFlags);
+    else
+        scene = importer.ReadFile(data.mod->Path.string().c_str(), loadFlags);
+
+    if (!scene || !scene->HasMeshes()) return 0;
 
     // determine the layout of the vb
     UINT stride = 16;
@@ -2449,6 +2616,24 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
         // otherwise if we need a specific mesh, select it or the last one.
         if (meshIndex != 0)
             mesh = scene->mMeshes[meshIndex < scene->mNumMeshes ? meshIndex : scene->mNumMeshes - 1];
+    }
+
+    // Extract bone data
+    if (hasFullVB && mesh->mNumBones) {
+        for (unsigned int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
+            const aiBone* bone = mesh->mBones[boneIndex];
+            aiVector3D position;
+            aiQuaternion rotation;
+            aiVector3D scale;
+            bone->mNode->mTransformation.Decompose(scale, rotation, position);
+
+ //           Bone tmp;
+ //           tmp.position = position;
+ //           tmp.rotation = rotation;
+  //          tmp.scale = scale;
+
+    //        data.bones.push_back(tmp);
+        }
     }
 
     // fill buffers    
@@ -2494,6 +2679,8 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
                     uint8_t indices[4] = {};
                     float weights[4] = {};
                 };
+                
+
 
                 std::vector<VertexBoneData> vertexBones(mesh->mNumVertices);
                 for (unsigned int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
@@ -2528,6 +2715,7 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
             }
         }
     }
+    
 
     // @todo: sanity check num bones/weights
 
@@ -2544,11 +2732,11 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
     UINT vertexSize = vertices.size() * sizeof(float);
     auto device = g_Direct3DDevice()->lpVtbl;
     if (FAILED(device->CreateVertexBuffer(g_Direct3DDevice(), vertexSize, 0, 0, D3DPOOL_DEFAULT, &data.vertexBuffer, nullptr)))
-        return false;
+        return 0;
 
     void* vbData;
     if (FAILED(data.vertexBuffer->lpVtbl->Lock(data.vertexBuffer, 0, vertexSize, &vbData, 0)))
-        return false;
+        return 0;
 
     memcpy(vbData, vertices.data(), vertexSize);
     data.vertexBuffer->lpVtbl->Unlock(data.vertexBuffer);
@@ -2557,11 +2745,11 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
     // create index buffer
     UINT indexSize = indices.size() * sizeof(uint16_t);
     if (FAILED(device->CreateIndexBuffer(g_Direct3DDevice(), indexSize, 0, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &data.indexBuffer, nullptr)))
-        return false;
+        return 0;
 
     void* ibData;
     if (FAILED(data.indexBuffer->lpVtbl->Lock(data.indexBuffer, 0, indexSize, &ibData, 0)))
-        return false;
+        return 0;
 
     memcpy(ibData, indices.data(), indexSize);
     data.indexBuffer->lpVtbl->Unlock(data.indexBuffer);
@@ -2572,7 +2760,8 @@ bool modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_
     data.stride = stride;
     data.numVertices = static_cast<UINT>((data.vertices.size() / (stride / sizeof(float))));
     data.numIndices = static_cast<UINT>(data.indices.size());
-    return true;
+
+    return 1;
 }
 
 bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFile, const char *ext)
@@ -2584,7 +2773,6 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 #       if MOD_MESH_SUPPORT
             Mod* replacementMesh = getMod(MeshFile->FileName.m_hash, TLRESOURCE_TYPE_MESH_FILE);
 
-            // @todo *mesh replacement
             // @todo platform
             if (replacementMesh)
             {
@@ -2759,6 +2947,17 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 
                 // @todo: custom submeshes
 
+                modGenericMesh modMesh;
+                // auto numCustomSubmeshes = 0;
+                // if (replacementMesh) {
+                //     modMesh.mod = replacementMesh;
+                //     numCustomSubmeshes = modImportMesh(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size(), "", 0);
+                // 
+                //     if (Mesh->NSections != numCustomSubmeshes)
+                //         printf("there are %d sections in the original mesh, but we have %d.\n", Mesh->NSections, numCustomSubmeshes);
+                // }
+
+
                 for (auto idx_Section = 0u; idx_Section < Mesh->NSections; ++idx_Section)
                 {
                     Mesh->Sections[idx_Section].field_0 = 1;
@@ -2798,34 +2997,38 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
                             replacementMesh = dbgReplaceMesh;
 #                   endif
 #                   if MOD_MESH_SUPPORT
-                        modGenericMesh modMesh;
-                        if (replacementMesh && modImportMesh(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size(), v29, idx_Section)) {
-                            nglVertexBuffer* vb = &MeshSection->field_3C;
-                            vb->createVertexBufferAndWriteData(modMesh.vertices.data(), modMesh.vertices.size() * sizeof(float), 1028);
-                            bit_cast<nglVertexBuffer*>(&MeshSection->m_indexBuffer)
-                                ->createIndexBufferAndWriteData(modMesh.indices.data(), modMesh.indices.size() * sizeof(uint16_t));
+                        if (replacementMesh) 
+                        {
+                            modMesh.mod = replacementMesh;
+                            if (modImportMesh(g_Direct3DDevice(), modMesh, (char*)replacementMesh->Data.data(), replacementMesh->Data.size(), v29, idx_Section)) {
+                                nglVertexBuffer* vb = &MeshSection->field_3C;
+                                vb->createVertexBufferAndWriteData(modMesh.vertices.data(), modMesh.vertices.size() * sizeof(float), 1028);
+                                bit_cast<nglVertexBuffer*>(&MeshSection->m_indexBuffer)
+                                    ->createIndexBufferAndWriteData(modMesh.indices.data(), modMesh.indices.size() * sizeof(uint16_t));
 
-                            MeshSection->NVertices = modMesh.numVertices;
-                            MeshSection->NIndices = modMesh.numIndices;
-                            MeshSection->m_stride = modMesh.stride;
-                            MeshSection->m_primitiveType = D3DPT_TRIANGLELIST;
-                            Mesh->NSections = 1; // @todo: custom submeshes
-                            continue; // skip
+                                MeshSection->NVertices = modMesh.numVertices;
+                                MeshSection->NIndices = modMesh.numIndices;
+                                MeshSection->m_stride = modMesh.stride;
+                                MeshSection->m_primitiveType = D3DPT_TRIANGLELIST;
+								MeshSection->field_5C = 4;
+                                //Mesh->NSections = 1; // @todo: custom submeshes
+                                continue; // skip
+                            }
                         }
 #                   endif
 
                     [&v29](auto *MeshSection) -> void {
                         auto func = [](auto *MeshSection)
                         {
-                            auto v31 = (uint32_t) (MeshSection->field_3C.Size >> 6);
+                            auto v31 = (uint32_t) (MeshSection->field_3C.Size >> 6);        // / 64
 
                             auto *v32 = (float *) (MeshSection->field_3C.m_vertexData +
                                                    32);
                             MeshSection->field_5C = 2;
-                            for (; v31 != 0; --v31)
+                            for (; v31 != 0; --v31)                 // for each bone
                             {
                                 if (equal(v32[7], 0.0f)) {
-                                    if (not_equal(v32[6], 0.0f) && MeshSection->field_5C < 3u) {
+                                    if (not_equal(v32[64], 0.0f) && MeshSection->field_5C < 3u) {
                                         MeshSection->field_5C = 3;
                                     }
                                 } else {
@@ -2995,7 +3198,7 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
                 if (Mesh->NBones != 0)
                 {
                     for (int i = 0; i < Mesh->NBones; ++i) {
-                        Mesh->Bones[i] = sub_4150E0(Mesh->Bones[i]);
+                        Mesh->Bones[i] = sub_4150E0(Mesh->Bones[i]);        // inverseBindPoseMatrix
                     }
 
                     auto v89 = Mesh->field_20[0];
@@ -3093,6 +3296,7 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
 
         Header->field_10 = (int) MeshFile->FileBuf.Buf;
         return true;
+		
     }
     else
     {
@@ -3100,8 +3304,8 @@ bool nglLoadMeshFileInternal(const tlFixedString &FileName, nglMeshFile *MeshFil
         auto result = func(FileName, MeshFile, ext);
     }
     return true;
-
 }
+
 #endif
 
 bool nglCanReleaseMeshFile(nglMeshFile *a1) {

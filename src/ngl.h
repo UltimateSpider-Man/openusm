@@ -33,6 +33,21 @@ extern void nglSetDebugFlag(const char *Flag, uint8_t Set);
 
 enum nglFrameLockType {};
 
+enum class FrameLockMode {
+    Disabled = 0,
+    Mode1 = 1,
+    Mode2 = 2
+};
+struct nglFrameLockType2 {
+    int field_0; // Frame lock mode (0, 1, or 2)
+    bool enableVSync; // Enable vertical sync
+    int frameRate; // Target frame rate
+    int frameLockType; // Type of frame lock (e.g., adaptive, fixed)
+    bool immediateLock; // Enable immediate frame lock
+    int lockThreshold; // Threshold for frame lock
+
+    // Add other fields as necessary
+};
 enum nglBlendModeType {
     NGLBM_OPAQUE = 0,               // No translucency is performed, alpha is ignored.
 	NGLBM_PUNCHTHROUGH = 1,         // Similar to opaque, except if alpha is below a threshold the pixel is skipped.
@@ -860,6 +875,9 @@ extern nglMesh *nglGetMesh(uint32_t a1, bool a2);
 
 //0x0076E750
 extern void nglSetFrameLock(nglFrameLockType a2);
+
+
+extern void nglSetFrameLock2(nglFrameLockType2 a2);
 
 //0x007793E0
 extern void nglReleaseFont(nglFont *);

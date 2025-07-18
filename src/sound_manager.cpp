@@ -8,6 +8,7 @@
 #include "utility.h"
 #include "variable.h"
 #include "variables.h"
+#include "sound_instance_id.h"
 
 static constexpr int SM_MAX_SOURCE_TYPES = 8;
 
@@ -21,6 +22,31 @@ struct sound_volume {
 VALIDATE_SIZE(sound_volume, 0x20);
 
 static Var<sound_volume[8]> s_volumes_by_type{0x0095C9A8};
+
+
+#include <cstdint>
+
+const int NUM_SOUND_INSTANCE_SLOTS = 128;
+const int SOUND_INSTANCE_SLOT_SIZE = 84;
+
+
+void nslStop() {
+    // Implementation depends on the actual function
+}
+
+void sound_manager::release_all_sounds() {
+    if (!g_is_the_packer()) {
+        nslStop();
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(s_sound_instance_slots());
+        for (int i = 0; i < NUM_SOUND_INSTANCE_SLOTS; ++i) {
+            // Zero out the sound instance slot
+            for (int j = 0; j < 16; ++j) {
+                *reinterpret_cast<uint32_t*>(ptr + j * 84) = 0;
+            }
+            ptr += 1344; // Increment by the total size of 16 sound instance slots
+        }
+    }
+}
 
 sound_alias_database *sound_manager::get_sound_alias_database()
 {

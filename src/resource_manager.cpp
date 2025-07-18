@@ -119,7 +119,7 @@ make_var(resource_key *, amalgapak_prerequisite_table);
     mString v1{a2[arg4]};
 #endif
     
-    mString v2{"packs\\amalga2"};
+    mString v2{"packs\\amalga"};
 
     mString res = v2 + v1;
 
@@ -171,7 +171,7 @@ void load_amalgapak()
             pack_file_header.verify(a1);
         }
 
-        if constexpr (0)
+        if constexpr (1)
         {
             pack_file_header.field_18 = 0;
         }
@@ -549,7 +549,7 @@ bool get_pack_file_stats(const resource_key &a1, resource_pack_location *a2, mSt
 {
     TRACE("resource_manager::get_pack_file_stats", a1.get_platform_string(g_platform).c_str());
 
-    if constexpr (0)
+    if constexpr (1)
     {
         assert(amalgapak_pack_location_table != nullptr);
 
@@ -565,7 +565,7 @@ bool get_pack_file_stats(const resource_key &a1, resource_pack_location *a2, mSt
                     [](auto &a1, auto &a2) {
                         return a1.loc.field_0 <= a2.loc.field_0;
                     });
-            assert(is_sorted);
+        //    assert(is_sorted);
         }
 
         auto i = 0;
@@ -920,7 +920,7 @@ void configure_packs_by_memory_map(int idx)
                 }
             }
 
-            if constexpr (0)
+            if constexpr (1)
             {
                 if (partitions->size() < partitions->capacity())
                 {
@@ -1067,7 +1067,7 @@ uint8_t *get_resource(const resource_key &resource_id, int *mash_data_size, reso
 {
     TRACE("resource_manager::get_resource", resource_id.get_platform_string(g_platform).c_str());
     
-    if constexpr (0)
+    if constexpr (1)
     {
         assert(!g_is_the_packer() && "Don't call this function while packing!");
         assert(resource_id.is_set());

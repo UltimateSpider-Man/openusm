@@ -12,6 +12,13 @@ namespace sound_manager {
 
     //0x0050FFF0
     extern sound_alias_database *get_sound_alias_database();
+	
+	
+#include <cstdint>
+
+
+void release_all_sounds();
+
 
     //0x0054DB10
     extern void load_common_sound_bank(bool a1);
