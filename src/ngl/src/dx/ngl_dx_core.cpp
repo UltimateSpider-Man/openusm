@@ -360,15 +360,16 @@ void nglRenderPerfBar()
 
 void nglRenderPerfInfo()
 {
-    nglSyncDebug().ShowPerfInfo = true;
+    printf("nglRenderPerfInfo\n");
 
-    char Dest[2048];
+    if constexpr (0) {
+        char Dest[2048];
 
-    static Var<char[1]> byte_8B7DF8 = {0x008B7DF8};
+        static Var<char[1]> byte_8B7DF8 = {0x008B7DF8};
 
-    static Var<int> nglVif1WorkSize = {0x00971F10};
+        static Var<int> nglVif1WorkSize = {0x00971F10};
 
-    if (nglSyncDebug().ShowPerfInfo) {
+        if (nglSyncDebug().ShowPerfInfo == 1) {
         size_t v0 = sub_74A650();
         sprintf(Dest,
                 byte_8B7DF8(),
@@ -416,6 +417,9 @@ void nglRenderPerfInfo()
     nglListAddQuad(&a1);
     float v3 = (630 - a3);
     nglListAddString(nglSysFont(), Dest, v3, 20.0, -9999.0, -1, 1.0, 1.0);
+         } else {
+        CDECL_CALL(0x0076E0E0);
+		}
 }
 
 
