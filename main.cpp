@@ -1,5 +1,6 @@
 #include "forwards.h"
-
+#include "resource_versions.h"
+#include "main.h"
 #include "aeps.h"
 #include "ai_find_best_swing_anchor.h"
 #include "ai_interact_resource_handler.h"
@@ -262,6 +263,8 @@
 #include "window_manager.h"
 #include "worldly_pack_slot.h"
 
+#include "main_menu_credits.h"
+
 #include "input.h"
 
 #include <ngl_dx_scene.h>
@@ -336,7 +339,7 @@ void ToggleFullScreen(bool isFullscreen)
 
 
 void init_hook(HWND hwnd) {
-    os_developer_options::instance->set_flag(mString{ "NO_LOAD_SCREEN" }, g_config.NoLoadScreen);
+  //  os_developer_options::instance->set_flag(mString{ "NO_LOAD_SCREEN" }, g_config.NoLoadScreen);
 
     bool windowedMode = g_config.WindowedMode;
 
@@ -1321,7 +1324,8 @@ int __stdcall myWinMain(HINSTANCE hInstance,
     if (!CreateMutexA(nullptr, true, "USM") || GetLastError() == ERROR_ALREADY_EXISTS) {
         return 0;
     }
-
+	FEMenuSystem *a2;
+    main_menu_credits(a2, 1, 1);
     g_settings() = new Settings{"Activision", "Ultimate Spider-Man"};
 
     char v6;
@@ -2305,9 +2309,10 @@ static void *HookVTableFunction(void *pVTable, void *fnHookFunc, int nOffset) {
 }
 
 typedef enum {
-    MENU_TOGGLE,
+    MENU_SELECT,
     MENU_ACCEPT,
     MENU_BACK,
+	MENU_START,
 
     MENU_UP,
     MENU_DOWN,
@@ -2344,8 +2349,11 @@ int get_menu_key_value(MenuKey key, int keyboard) {
 
         int i = 0;
         switch (key) {
-        case MENU_TOGGLE:
-            i = DIK_INSERT;
+        case MENU_SELECT:
+            i = DIK_Z;
+            break;
+        case MENU_START:
+            i = DIK_Y;
             break;
         case MENU_ACCEPT:
             i = DIK_RETURN;
@@ -2410,7 +2418,8 @@ void GetDeviceStateHandleControllerInput(LPVOID lpvData) {
 
 	read_and_update_controller_key_button(joy, 1, MENU_ACCEPT);
 	read_and_update_controller_key_button(joy, 2, MENU_BACK);
-        read_and_update_controller_key_button(joy, 11, MENU_TOGGLE);
+        read_and_update_controller_key_button(joy, 9, MENU_SELECT);
+		read_and_update_controller_key_button(joy, 8, MENU_START);
 
 	read_and_update_controller_key_dpad(joy, 0, MENU_UP);
 	read_and_update_controller_key_dpad(joy, 9000, MENU_RIGHT);
@@ -2866,16 +2875,16 @@ typedef struct _list {
 }list;
 
 #include "levelmenu.h"
-debug_menu* script_menu = nullptr;
 debug_menu* progression_menu = nullptr;
+debug_menu* script_menu = nullptr;
 debug_menu* level_select_menu = nullptr;
 #ifdef TARGET_XBOX
 #endif
 
 debug_menu** all_menus[] = {
     &debug_menu::root_menu,
-    &script_menu,
     &progression_menu,
+	&script_menu,
     &level_select_menu,
 #ifdef TARGET_XBOX
 #endif
@@ -3613,6 +3622,44 @@ typedef void (*resource_manager_reload_amalgapak_ptr)(void);
 resource_manager_reload_amalgapak_ptr resource_manager_reload_amalgapak = (resource_manager_reload_amalgapak_ptr)0x0054C2E0;
 
 
+// Helper function to add a mission entry
+void add_mission_entry(const mission_table_container::script_info &info, int district_id, debug_menu *target_menu)
+{
+    auto v50 = menu_missions.size();
+    const auto v19 = std::string {"pk_"} + info.field_0;
+    auto *v11 = v19.c_str();
+    auto key = create_resource_key_from_path(v11, RESOURCE_KEY_TYPE_PACK);
+    
+    if ( resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr) )
+    {
+        mission_t mission {};
+        mission.field_0 = info.field_0;
+        mission.m_district_id = district_id;
+        mission.field_14 = info.field_8;
+        mission.field_C = info.field_4->get_script_data_name();
+        menu_missions.push_back(mission);
+        
+        mString v47{};
+        if ( mission.field_C != nullptr )
+        {
+            auto *v17 = mission.field_C;
+            auto *v14 = mission.field_0.c_str();
+            v47 = mString {0, "%s (%s)", v14, v17};
+        }
+        else
+        {
+            auto v18 = mission.field_14;
+            auto *v15 = mission.field_0.c_str();
+            v47 = mString {0, "%s (%d)", v15, v18};
+        }
+        
+        auto *v46 = create_menu_entry(v47);
+        v46->set_id(v50);
+        v46->set_game_flags_handler(mission_select_handler);
+        target_menu->add_entry(v46);
+    }
+}
+
 void populate_missions_menu(debug_menu_entry *entry)
 {
     menu_missions = {};
@@ -3620,90 +3667,119 @@ void populate_missions_menu(debug_menu_entry *entry)
     {
         resource_manager_can_reload_amalgapak();
     }
-
     auto *head_menu = create_menu("Missions", debug_menu::sort_mode_t::ascending);
     entry->set_submenu(head_menu);
-	debug_menu_entry v4;
-   debug_menu_entry* block1 = v4.alloc_block(head_menu, 4);
-   block1[0] = debug_menu_entry{ head_menu };
-
+    debug_menu_entry v4;
+    debug_menu_entry* block1 = v4.alloc_block(head_menu, 4);
+    block1[0] = debug_menu_entry{ head_menu };
+    
     auto *mission_unload_entry = create_menu_entry(mString{"UNLOAD CURRENT MISSION"});
-
     mission_unload_entry->set_game_flags_handler(mission_unload_handler);
     head_menu->add_entry(mission_unload_entry);
-
+    
     auto *v2 = mission_manager::s_inst;
     auto v58 = v2->get_district_table_count();
+    
     for ( auto i = -1; i < v58; ++i )
     {
         fixedstring<8> v53 {};
         int district_id;
         mission_table_container *table = nullptr;
+        debug_menu *current_district_menu = nullptr;
+        
         if ( i == -1 )
         {
             table = v2->get_global_table();
             v53 = fixedstring<8> {"global"};
             district_id = 0;
+            current_district_menu = head_menu; // Put global missions directly in main menu
         }
         else
         {
             table = v2->get_district_table(i);
             auto *reg = table->get_region();
             v53 = reg->get_name();
-
             district_id = reg->get_district_id();
-
-            auto *v25 = create_menu(v53.to_string(), debug_menu::sort_mode_t::ascending);
-   debug_menu_entry v4;
-   debug_menu_entry* block = v4.alloc_block(v25, 4);
-   block[0] = debug_menu_entry{ v25 };
-            auto *v26 = create_menu_entry(v25);
-
-            head_menu->add_entry(v26);
+            
+            // Create district folder
+            auto *district_menu = create_menu(v53.to_string(), debug_menu::sort_mode_t::ascending);
+            debug_menu_entry v4_district;
+            debug_menu_entry* block_district = v4_district.alloc_block(district_menu, 4);
+            block_district[0] = debug_menu_entry{ district_menu };
+            auto *district_entry = create_menu_entry(district_menu);
+            head_menu->add_entry(district_entry);
+            current_district_menu = district_menu;
         }
-
+        
         _std::vector<mission_table_container::script_info> script_infos;
-
         if ( table != nullptr )
         {
             auto res = table->append_script_info(&script_infos);
-        //    assert(res);
+            // assert(res);
         }
-
+        
+        // Separate missions by type
+        std::vector<mission_table_container::script_info> regular_missions;
+        std::vector<mission_table_container::script_info> trick_races;
+        std::vector<mission_table_container::script_info> venom_trick_races;
+        
         for ( auto &info : script_infos)
         {
-            auto v50 = menu_missions.size();
-            const auto v19 = std::string {"pk_"} + info.field_0;
-            auto *v11 = v19.c_str();
-            auto key = create_resource_key_from_path(v11, RESOURCE_KEY_TYPE_PACK);
-            if ( resource_manager::get_pack_file_stats(key, nullptr, nullptr, nullptr) )
+            std::string mission_name = info.field_0;
+            
+            // Check if it's a venom trick race (check for "venom" first since it might also contain "trick")
+            if (mission_name.find("venom") != std::string::npos && 
+                mission_name.find("trick") != std::string::npos)
             {
-                mission_t mission {};
-                mission.field_0 = info.field_0;
-                mission.m_district_id = district_id;
-                mission.field_14 = info.field_8;
-
-                mission.field_C = info.field_4->get_script_data_name();
-                menu_missions.push_back(mission);
-
-                mString v47{};
-                if ( mission.field_C != nullptr )
-                {
-                    auto *v17 = mission.field_C;
-                    auto *v14 = mission.field_0.c_str();
-                    v47 = mString {0, "%s (%s)", v14, v17};
-                }
-                else
-                {
-                    auto v18 = mission.field_14;
-                    auto *v15 = mission.field_0.c_str();
-                    v47 = mString {0, "%s (%d)", v15, v18};
-                }
-
-                auto *v46 = create_menu_entry(v47);
-                v46->set_id(v50);
-                v46->set_game_flags_handler(mission_select_handler);
-                head_menu->add_entry(v46);
+                venom_trick_races.push_back(info);
+            }
+            // Check if it's a regular trick race
+            else if (mission_name.find("trick") != std::string::npos)
+            {
+                trick_races.push_back(info);
+            }
+            // Regular mission
+            else
+            {
+                regular_missions.push_back(info);
+            }
+        }
+        
+        // Add regular missions directly to district menu
+        for ( auto &info : regular_missions)
+        {
+            add_mission_entry(info, district_id, current_district_menu);
+        }
+        
+        // Create Trick Races submenu if there are trick races
+        if (!trick_races.empty())
+        {
+            auto *trick_menu = create_menu("Trick Races", debug_menu::sort_mode_t::ascending);
+            debug_menu_entry v4_trick;
+            debug_menu_entry* block_trick = v4_trick.alloc_block(trick_menu, 4);
+            block_trick[0] = debug_menu_entry{ trick_menu };
+            auto *trick_entry = create_menu_entry(trick_menu);
+            current_district_menu->add_entry(trick_entry);
+            
+            for ( auto &info : trick_races)
+            {
+                add_mission_entry(info, district_id, trick_menu);
+            }
+        }
+        
+        // Create Venom Trick Races submenu if there are venom trick races
+        if (!venom_trick_races.empty())
+        {
+            auto *venom_trick_menu = create_menu("Venom Trick Races", debug_menu::sort_mode_t::ascending);
+            debug_menu_entry v4_venom;
+            debug_menu_entry* block_venom = v4_venom.alloc_block(venom_trick_menu, 4);
+            block_venom[0] = debug_menu_entry{ venom_trick_menu };
+            auto *venom_trick_entry = create_menu_entry(venom_trick_menu);
+            current_district_menu->add_entry(venom_trick_entry);
+            
+            for ( auto &info : venom_trick_races)
+            {
+                add_mission_entry(info, district_id, venom_trick_menu);
             }
         }
     }
@@ -3813,6 +3889,43 @@ inline constexpr auto NUM_OPTIONS = 150u + 76u;
 typedef bool(__fastcall* entity_tracker_manager_get_the_arrow_target_pos_ptr)(void*, void*, vector3d*);
 entity_tracker_manager_get_the_arrow_target_pos_ptr entity_tracker_manager_get_the_arrow_target_pos = (entity_tracker_manager_get_the_arrow_target_pos_ptr)0x0062EE10;
 
+    void speed_motion_handler(debug_menu_entry* a1)
+    {
+        switch (a1->get_ival()) {
+		case 0u:
+		os_developer_options::instance->set_int(mString{ "FRAME_LIMIT" } ,0);			
+        g_timer()->normal_motion();
+            break;
+        case 1u:
+        os_developer_options::instance->set_int(mString{ "FRAME_LIMIT" } ,1);			
+        g_timer()->speed_motion();
+            break;
+        case 2u:
+        os_developer_options::instance->set_int(mString{ "FRAME_LIMIT" } ,2);			
+        g_timer()->super_speed_motion();
+            break;
+        case 3u:
+		os_developer_options::instance->set_int(mString{ "FRAME_LIMIT" } ,3);			
+        g_timer()->slow_motion();
+            break;
+	    case 4u:
+		os_developer_options::instance->set_int(mString{ "FRAME_LIMIT" } ,4);			
+        g_timer()->super_slow_motion();
+            break;
+		case 5u:
+		os_developer_options::instance->set_int(mString{ "FRAME_LIMIT" } ,5);			
+        g_timer()->normal_motion();
+            break;
+		case 1000u:
+		os_developer_options::instance->set_int(mString{ "FRAME_LIMIT" } ,1000);			
+        g_timer()->normal_motion();
+            break;
+
+    }
+	
+	    }
+
+
 void create_devopt_menu(debug_menu* parent)
 {
     assert(parent != nullptr);
@@ -3858,7 +3971,31 @@ void create_devopt_menu(debug_menu* parent)
     parent->add_entry(&v5);
 }
 
+#include "timer.h"
+
+    void slow_motion_handler(debug_menu_entry* a1)
+    {
+        switch (a1->get_bval()) {
+        case 0u:
+		os_developer_options::instance->set_int(mString{ "FRAME_LOCK" } ,false);			
+        g_timer()->normal_motion();
+		debug_menu::hide();
+            break;
+        case 1u:
+        os_developer_options::instance->set_int(mString{ "FRAME_LOCK" } ,true);			
+        g_timer()->slow_motion();
+		debug_menu::hide();
+            break;
+
+    }
+	
+	    }
+		
+		
+
 void create_game_flags_menu(debug_menu* parent);
+
+
 
 void create_game_flags_menu(debug_menu *parent)
 {
@@ -3900,8 +4037,13 @@ void create_game_flags_menu(debug_menu *parent)
 
     v89 = debug_menu_entry(mString{ "Slow Motion Enabled" });
     v89.set_bval(false);
-    v89.set_game_flags_handler(game_flags_handler);
-    v89.set_id(2);
+    v89.set_game_flags_handler(slow_motion_handler);
+    v92->add_entry(&v89);
+	
+	v89 = debug_menu_entry(mString{ "Speed Motion Control" });
+    v89.set_ival(0);
+	v89.set_max_value(4);
+	v89.set_game_flags_handler(speed_motion_handler);
     v92->add_entry(&v89);
 
     v89 = debug_menu_entry{ mString{"Monkey Enabled"} };
@@ -3997,6 +4139,31 @@ void create_game_flags_menu(debug_menu *parent)
     create_gamefile_menu(v92);
 }
 
+
+void create_game_flags_menu(debug_menu* parent);
+
+
+
+
+
+
+
+
+void create_script_menu()
+{
+    if ( script_menu == nullptr )
+    {
+        script_menu =  create_menu ("Script", debug_menu::sort_mode_t::undefined);
+        debug_menu_entry v1;
+        debug_menu_entry* block = v1.alloc_block(script_menu, 4);
+        block[0] = debug_menu_entry{ script_menu };
+        debug_menu::root_menu->add_entry(script_menu);
+    }
+}
+
+
+
+
 #pragma endregion
 
 // Debug Menu
@@ -4004,11 +4171,10 @@ void create_game_flags_menu(debug_menu *parent)
 
 void debug_menu::init() {
     root_menu = create_menu("Debug Menu", handle_debug_entry, 10);
-    script_menu = create_menu("Script");
+
     progression_menu = create_menu("Progression");
     level_select_menu = create_menu("Level Select");
 
-    debug_menu_entry script_entry{ script_menu };
     debug_menu_entry progression_entry{ progression_menu };
     debug_menu_entry level_select_entry{ level_select_menu };
     
@@ -4019,9 +4185,6 @@ void debug_menu::init() {
    debug_menu_entry* block = v1.alloc_block(level_select_menu, 4);
    block[0] = debug_menu_entry{ level_select_menu };
    
-   		debug_menu_entry v2;
-   debug_menu_entry* block1 = v2.alloc_block(script_menu, 4);
-   block1[0] = debug_menu_entry{ script_menu };
 
    		debug_menu_entry v3;
    debug_menu_entry* block2 = v3.alloc_block(progression_menu, 4);
@@ -4043,7 +4206,7 @@ void debug_menu::init() {
     create_entity_variants_menu(root_menu);
 	create_entity_animation_menu(root_menu);
 	add_debug_menu_entry(root_menu, &level_select_entry);
-	add_debug_menu_entry(root_menu, &script_entry);
+	create_script_menu();
     add_debug_menu_entry(root_menu, &progression_entry);
 	create_camera_menu_items(root_menu);
 
@@ -4073,7 +4236,8 @@ void render_current_debug_menu() {
 
     int num_elements = std::min((DWORD)MAX_ELEMENTS_PAGE, current_menu->used_slots - current_menu->window_start);
     int needs_down_arrow = ((current_menu->window_start + MAX_ELEMENTS_PAGE) < current_menu->used_slots) ? 1 : 0;
-
+    pause_menu_system_ptr->Deactivate();
+	
     int cur_width, cur_height;
     int debug_width = 0;
     int debug_height = 0;
@@ -4153,8 +4317,10 @@ void debug_nglListEndScene_hook() {
     if (debug_enabled) 
         render_current_debug_menu();
 	
+	
 	    if (debug_disabled) 
         render_current_debug_menu();
+
 
     nglListEndScene();
 }
@@ -4164,6 +4330,7 @@ void close_debug()
     debug_disabled = 0;
     g_game_ptr->unpause();
     g_game_ptr->enable_physics(true);
+	pause_menu_system_ptr->Deactivate();
 }
 
 void disable_physics()
@@ -4172,7 +4339,10 @@ void disable_physics()
     g_game_ptr->unpause();
     current_menu = current_menu;
     g_game_ptr->enable_physics(false);
+					
 }
+
+
 
 void enable_physics()
 {
@@ -4180,6 +4350,7 @@ void enable_physics()
     g_game_ptr->unpause();
     current_menu = current_menu;
     g_game_ptr->enable_physics(true);
+					
 }
 
 void custom()
@@ -4190,6 +4361,7 @@ void custom()
     !os_developer_options::instance->get_flag("ENABLE_ZOOM_MAP");
     spider_monkey::is_running();
     g_game_ptr->enable_physics(false);
+					
 }
 
 
@@ -4199,7 +4371,7 @@ void custom()
 #include "fe_health_widget.h"
 
 
-constexpr auto NUM_HEROES = 22u;
+constexpr auto NUM_HEROES = 24u;
 
 const char* hero_list[NUM_HEROES] = {
     "ultimate_spiderman",
@@ -4224,6 +4396,8 @@ const char* hero_list[NUM_HEROES] = {
     "shocker",
     "silver_sable",
     "johnny_storm",
+	"black_suit",
+	"spider-man",
 };
 
 enum class hero_status_e {
@@ -4510,6 +4684,25 @@ inline void SelectScene(const std::string& sceneName)
 
 
 
+int wait_loop0 = 1000;
+int wait_loop1 = 500;
+
+// for microprocessor without timer, if it has a timer refer to vendor documentation and use it instead.
+void
+wait( int seconds )
+{   // this function needs to be finetuned for the specific microprocessor
+    int i, j, k;
+    for(i = 0; i < seconds; i++)
+    {
+        for(j = 0; j < wait_loop0; j++)
+        {
+            for(k = 0; k < wait_loop1; k++)
+            {   // waste function, volatile makes sure it is not being optimized out by compiler
+                int volatile t = 120 * j * i + k;
+                t = t + 5;
+            }
+        }        }        }
+ 
 
 
 
@@ -4518,15 +4711,16 @@ inline void SelectScene(const std::string& sceneName)
                                           const std::string& extraArgs = {})
 {
 
-	g_game_ptr->clear_screen();
-	  sound_manager::delete_inst();
+		g_game_ptr->clear_screen();
+	  sound_manager::delete_inst();  
     #if defined(_WIN32)
-        Sleep(2000); 
+        Sleep(5000); 
+
 
     #else 
-        sleep(1000); 
+        sleep(500);	
     #endif
-    SelectScene(sceneName);      
+    SelectScene(sceneName);	
     restart(extraArgs);          
 	
 
@@ -4607,9 +4801,34 @@ void hero_entry_callback(debug_menu_entry*);
 
 void hero_toggle_handler(debug_menu_entry* entry);
 
+bool is_hero_available(const char* hero_name) {
+        try {
+            resource_key hero_key;
+            string_hash hero_hash{hero_name};
+            hero_key.set(hero_hash, RESOURCE_KEY_TYPE_PACK);
+            return resource_manager::get_pack_file_stats(hero_key, nullptr, nullptr, nullptr);
+        }
+        catch (const std::exception&) {
+            return false;
+        }
+    }
+	
+	
+	constexpr auto HERO_PACKLIST = 22;
+
+	
+	
+	static bool hero_select_list[HERO_PACKLIST] = {
+true, false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false
+};
+
+
+
+
 void create_level_select_menu(debug_menu* level_select_menu)
 {
     //assert(debug_menu::root_menu != nullptr);
+
     static debug_menu* hero_select_menu = create_menu("Hero Select");
 
     debug_menu_entry v28{ hero_select_menu };
@@ -4630,30 +4849,29 @@ void create_level_select_menu(debug_menu* level_select_menu)
             v37.m_id = i;
             v37.set_frame_advance_cb(hero_entry_callback);
             hero_select_menu->add_entry(&v37);
-        }
-    }		
+		        }
+    }	
+			
     int arg0;
     auto* level_descriptors = get_level_descriptors(&arg0);
     printf("num_descriptors = %d\n", arg0);
     for (auto i = 0; i < arg0; ++i)
     {
-        resource_key_type v6 = RESOURCE_KEY_TYPE_PACK;
-        auto *v1 = level_descriptors[i].field_0.to_string();
-        string_hash v5{v1};
-        auto v11 = resource_key{v5, v6};
+        auto* v1 = level_descriptors[i].field_0.to_string();
+        string_hash v5{ v1 };
+        auto v11 = resource_key{ v5, RESOURCE_KEY_TYPE_PACK };
         auto v17 = resource_manager::get_pack_file_stats(v11, nullptr, nullptr, nullptr);
-        if ( v17 )
+        if (v17)
         {
-
             mString v22{ level_descriptors[i].field_60.to_string() };
             debug_menu_entry v39{ v22.c_str() };
 
             v39.set_game_flags_handler(level_select_handler);
             v39.m_id = i;
             level_select_menu->add_entry(&v39);
-
         }
     }
+
     mString v25{ "-- REBOOT --" };
     debug_menu_entry v38{ v25.c_str() };
 
@@ -4662,20 +4880,27 @@ void create_level_select_menu(debug_menu* level_select_menu)
     level_select_menu->add_entry(&v38);
 
 
-
 }
+
+
+
 
    void remove_player(int player_num)
     {
+resource_manager::set_active_district(false);
+    
         void (__fastcall *func)(void *, void *, int) = bit_cast<decltype(func)>(0x00558550);
 
         func(g_world_ptr, nullptr, player_num);
     }
 
 
-
+    
     int add_player(const mString &a2)
     {
+
+            resource_manager::set_active_district(true);
+
         int (__fastcall *func)(void *, void *, const mString *) = bit_cast<decltype(func)>(0x0055B400);
 
         return func(g_world_ptr, nullptr, &a2);
@@ -4688,6 +4913,29 @@ void hero_toggle_handler(debug_menu_entry* entry)
     printf("hero_toggle_handler\n");
     assert(entry->get_id() < NUM_HEROES);
     hero_selected = entry->get_id();
+	    int hero_index = -1;
+    if (hero_select_list[0] != 0) hero_index = 0;
+    if (hero_select_list[1] != 0) hero_index = 1;
+	    if (hero_select_list[2] != 0) hero_index = 2;
+		    if (hero_select_list[3] != 0) hero_index = 3;
+			    if (hero_select_list[4] != 0) hero_index = 4;
+				    if (hero_select_list[5] != 0) hero_index = 5;
+					    if (hero_select_list[6] != 0) hero_index = 6;
+						    if (hero_select_list[7] != 0) hero_index = 7;
+							    if (hero_select_list[0] != 0) hero_index = 0;
+    if (hero_select_list[8] != 0) hero_index = 8;
+	    if (hero_select_list[9] != 0) hero_index = 9;
+		    if (hero_select_list[10] != 0) hero_index = 10;
+
+
+
+    // Get hero name
+    mString* default_hero = os_developer_options::instance->get_hero_name();
+    mString hero_name(*default_hero);
+    
+    if (hero_index != -1) {
+        hero_name = hero_list[hero_index];
+    }
     hero_status = hero_status_e::REMOVE_PLAYER;
 }
 
@@ -4764,12 +5012,13 @@ void hero_entry_callback(debug_menu_entry*)
 
 
 
+debug_menu_root *& menu_ptr = var<debug_menu_root*>(0);
 
 
 
 
 void menu_setup(int game_state, int keyboard) {
-	if (is_menu_key_pressed(MENU_TOGGLE, keyboard) && (game_state == 6 || game_state == 7)) {
+	if (is_menu_key_pressed(MENU_START, keyboard) && (game_state == 6)) {
 
     //debug menu stuff
         if (!debug_enabled && game_state == 6) {
@@ -4777,6 +5026,8 @@ void menu_setup(int game_state, int keyboard) {
                 debug_enabled = !debug_enabled;
                 current_menu = debug_menu::root_menu;
                 custom();
+		
+				
             }
 
             else if (!debug_disabled && game_state == 6) {
@@ -4791,64 +5042,35 @@ void menu_setup(int game_state, int keyboard) {
                 g_game_ptr->unpause();
                 debug_enabled = !debug_enabled;
                 current_menu = current_menu;
-                disable_physics();
+                enable_physics();
 
             }
 
-            else if (!debug_enabled, debug_disabled && game_state == 6) {
+            else if (!debug_disabled, debug_enabled && game_state == 6) {
                 g_game_ptr->unpause();
-                debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
+                debug_enabled, debug_disabled = !debug_disabled, debug_enabled;
                 current_menu = current_menu;
-                enable_physics();
+                disable_physics();
             }
         }
 
-        if (is_menu_key_pressed(MENU_TOGGLE, keyboard) && (game_state == 6 || game_state == 7)) {
+        if (is_menu_key_pressed(MENU_SELECT, keyboard) && (game_state == 7)) {
+
+
 
             if (!debug_enabled && game_state == 7) {
                 g_game_ptr->unpause();
                 debug_enabled = !debug_enabled;
                 current_menu = debug_menu::root_menu;
-                disable_physics();
+                custom();
 
             }
 
             else if (!debug_disabled && game_state == 7) {
                 g_game_ptr->unpause();
                 debug_disabled = !debug_disabled;
-                current_menu = current_menu;
-                disable_physics();
-
-            }
-
-            else if (!debug_enabled && game_state == 7) {
-                g_game_ptr->unpause();
-                debug_enabled = !debug_enabled;
-                current_menu = current_menu;
-                disable_physics();
-
-            }
-
-            else if (!debug_enabled, debug_disabled && game_state == 7) {
-                g_game_ptr->unpause();
-                debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
                 current_menu = current_menu;
                 enable_physics();
-            }
-
-            if (!debug_enabled && game_state == 7) {
-                g_game_ptr->unpause();
-                debug_enabled = !debug_enabled;
-                current_menu = debug_menu::root_menu;
-                disable_physics();
-
-            }
-
-            else if (!debug_disabled && game_state == 7) {
-                g_game_ptr->unpause();
-                debug_disabled = !debug_disabled;
-                current_menu = current_menu;
-                disable_physics();
 
             }
 
@@ -4856,7 +5078,7 @@ void menu_setup(int game_state, int keyboard) {
                 g_game_ptr->unpause();
                 debug_enabled = !debug_enabled;
                 current_menu = current_menu;
-                disable_physics();
+                enable_physics();
 
             }
 
@@ -4864,6 +5086,7 @@ void menu_setup(int game_state, int keyboard) {
                 g_game_ptr->unpause();
                 debug_disabled, debug_enabled = !debug_disabled, debug_enabled;
                 current_menu = current_menu;
+				debug_menu::hide();
                 enable_physics();
             }
 
@@ -4963,6 +5186,128 @@ uint8_t __fastcall slf__create_progression_menu_entry(script_library_class::func
     return true;
 }
 
+string_hash names[120] = {
+    to_hash("_city_arena(num)"),
+    to_hash("daytime_tint_effect(entity)"),
+    to_hash("mission_fail_venom()"),
+    to_hash("mission_fail_spidey()"),
+    to_hash("do_it(entity)"),
+    to_hash("generic_spidey_lose_panel()"),
+    to_hash("failure_dialog(num)"),
+    to_hash("generic_venom_lose_panel()"),
+    to_hash("clear_all_scripts()"),
+    to_hash("ambient_music_start()"),
+    to_hash("fade_out_ambient_music()"),
+    to_hash("show_car_combat_help_text(num)"),
+    to_hash("set_hero(str)"),
+    to_hash("set_spiderman_health()"),
+    to_hash("run_hot_pursuit()"),
+    to_hash("prepare_open_city_vars()"),
+    to_hash("cycle_tod(num)"),
+    to_hash("switch_to_spiderman()"),
+    to_hash("switch_to_venom()"),
+    to_hash("hot_pursuit_checker()"),
+    to_hash("update_open_city_times()"),
+    to_hash("adjust_mission_num(num)"),
+    to_hash("set_TOD_and_shoreline(num)"),
+    to_hash("enable_mission_tokens_by_hero()"),
+    to_hash("go_to_my_neighborhood(vector3d)"),
+    to_hash("city_tutorial_manager(num,num,num)"),
+    to_hash("handle_objective_list(num)"),
+    to_hash("launch_trick_race(num)"),
+    to_hash("launch_venom_trick_race(num)"),
+    to_hash("launch_torch_race(num)"),
+    to_hash("set_up_tokens(num,num)"),
+    to_hash("kill_shenanigans()"),
+    to_hash("disable_mission_tokens()"),
+    to_hash("launch_combat_tour(num)"),
+    to_hash("show_mission_text(num)"),
+    to_hash("update_open_city_shen_times()"),
+    to_hash("convert_to_progression_step(num)"),
+    to_hash("disable_all_tokens()"),
+    to_hash("enable_pickup_tokens()"),
+    to_hash("set_torch_token(num)"),
+    to_hash("set_tour_tokens()"),
+    to_hash("set_race_tokens()"),
+    to_hash("reset_all_tours()"),
+    to_hash("process_neighborhood_tours()"),
+    to_hash("handle_health_increase(num)"),
+    to_hash("handle_race_unlocking(num)"),
+    to_hash("handle_tour_unlocking(num)"),
+    to_hash("handle_combo_unlocking(num,num)"),
+    to_hash("unlock_chars(num,num)"),
+    to_hash("unlock_concept(num,num)"),
+    to_hash("handle_costume_unlocking(num,num)"),
+    to_hash("city_goals_hint()"),
+    to_hash("process_master_objective()"),
+    to_hash("set_progression_display_vars()"),
+    to_hash("open_city_music_thread()"),
+    to_hash("set_force_shen_vars(num)"),
+    to_hash("set_force_can_vars(num)"),
+    to_hash("get_obj_list(num)"),
+    to_hash("set_current_progression(num)"),
+    to_hash("auto_progress_objectives(num)"),
+    to_hash("handle_unlocking(num,num)"),
+    to_hash("setup_progression_mission(num)"),
+    to_hash("setup_autoplay_mission(num)"),
+    to_hash("do_open_mission(num)"),
+    to_hash("prepare_endgame()"),
+    to_hash("progression_mission_failed()"),
+    to_hash("progression_mission_aborted()"),
+    to_hash("fail_in_water()"),
+    to_hash("get_hero_start_point(num)"),
+    to_hash("set_master_objective()"),
+    to_hash("enable_getaways(num)"),
+    to_hash("kill_mission_text(num)"),
+    to_hash("setup_progression_debug_menu()"),
+    to_hash("set_up_traffic()"),
+    to_hash("set_up_peds()"),
+    to_hash("hoodname()"),
+    to_hash("anybody_sinks(entity)"),
+    to_hash("entity_sinks(entity)"),
+    to_hash("kill_hero(debug_menu_entry)"),
+    to_hash("teleport_04(debug_menu_entry)"),
+    to_hash("teleport_03(debug_menu_entry)"),
+    to_hash("teleport_02(debug_menu_entry)"),
+    to_hash("teleport_01(debug_menu_entry)"),
+    to_hash("toggle_strafe(debug_menu_entry)"),
+    to_hash("toggle_progression_off(debug_menu_entry)"),
+    to_hash("toggle_progression_on(debug_menu_entry)"),
+    to_hash("start_to_level_V12(debug_menu_entry)"),
+    to_hash("start_to_level_V10(debug_menu_entry)"),
+    to_hash("start_to_level_V09(debug_menu_entry)"),
+    to_hash("start_to_level_V08(debug_menu_entry)"),
+    to_hash("start_to_level_V07(debug_menu_entry)"),
+    to_hash("start_to_level_V03(debug_menu_entry)"),
+    to_hash("start_to_level_V02(debug_menu_entry)"),
+    to_hash("start_to_level_V01(debug_menu_entry)"),
+    to_hash("game_finished(debug_menu_entry)"),
+    to_hash("start_to_level_S13(debug_menu_entry)"),
+    to_hash("start_to_level_S11(debug_menu_entry)"),
+    to_hash("start_to_level_S10(debug_menu_entry)"),
+    to_hash("start_to_level_S09(debug_menu_entry)"),
+    to_hash("start_to_level_S08(debug_menu_entry)"),
+    to_hash("start_to_level_S07(debug_menu_entry)"),
+    to_hash("start_to_level_S06(debug_menu_entry)"),
+    to_hash("start_to_level_S05(debug_menu_entry)"),
+    to_hash("start_to_level_S04(debug_menu_entry)"),
+    to_hash("start_to_combat_tour(debug_menu_entry)"),
+    to_hash("start_to_level_S03(debug_menu_entry)"),
+    to_hash("start_to_johnny_storm(debug_menu_entry)"),
+    to_hash("start_to_level_S02(debug_menu_entry)"),
+    to_hash("start_to_level_S01(debug_menu_entry)"),
+    to_hash("global_turnon_tokens(debug_menu_entry)"),
+    to_hash("on_combat_tour_enter(entity,num,str)"),
+    to_hash("on_storm_race_enter(entity,num,str)"),
+    to_hash("on_venom_race_enter(entity,num,str)"),
+    to_hash("on_trick_race_enter(entity,num,str)"),
+    to_hash("on_token_pickup(entity,num,num,num,str)"),
+    to_hash("clear_missions_for_unlockables()"),
+    to_hash("toggle_hero()"),
+    to_hash("set_hero_costume(str)"),
+    to_hash("left_token_trigger()"),
+    to_hash("display_car_combat_warning_panel(num)")
+};
 
 bool __fastcall slf__create_debug_menu_entry(script_library_class::function* func, void*, vm_stack* stack, void* unk)
 {
@@ -4973,7 +5318,6 @@ bool __fastcall slf__create_debug_menu_entry(script_library_class::function* fun
     char** strs = bit_cast<char**>(stack->SP);
 
     //printf("Entry: %s ", strs[0]);
-
     debug_menu_entry entry{};
     entry.entry_type = debug_menu_entry_type::dUNDEFINED;
     strcpy(entry.text, strs[0]);
@@ -4994,26 +5338,25 @@ bool __fastcall slf__create_debug_menu_entry(script_library_class::function* fun
         auto* so_entry = create_menu_entry(so->name.to_string());
         so_entry->set_data(so);
         so_entry->set_submenu(so_menu);
-        so_entry->set_game_flags_handler(nullptr);
-
         script_menu->add_entry(so_entry);
 
         for (auto j = 0; j < so->total_funcs; ++j) {
             auto* fn = so->funcs[j];
-            printf("Func name: %s\n", fn->name.to_string());
+            printf("Func name: %s\n", fn->fullname.to_string());
 
-            debug_menu_entry fn_entry{ fn->name.to_string() };
+            debug_menu_entry fn_entry{ fn->fullname.to_string() };
             script_instance* instance = stack->my_thread->inst;
-            fn_entry.set_script_handler(instance, { fn->name.to_string()});
 
             fn_entry.set_data(nullptr);
             fn_entry.set_submenu(nullptr);
-
+			fn_entry.m_id = j;
+			fn_entry.set_script_handler_from_char(instance, fn->fullname.to_string());
             add_debug_menu_entry(so_menu, &fn_entry);
         }
 
         printf("\n");
     }
+	
 
     se->add_allocated_stuff_for_debug_menu(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
 
@@ -5047,6 +5390,16 @@ BOOL install_redirects()
         set_nop(0x008218B5, 1);
         sp_log("Patching the DirectInput8Create call\n");
     }
+	
+	FEMultiLineText_patch();
+	
+	
+	      //  FrontEndMenuSystem_patch();
+			
+			
+			
+		//	pause_menu_root_patch();
+
 
     Timer_patch();
 
@@ -5087,6 +5440,7 @@ BOOL install_redirects()
         geometry_manager_patch();
 
         input_mgr_patch();
+		
     }
 
 
@@ -5121,8 +5475,12 @@ BOOL install_redirects()
         writeDWORD(0x0089C720, (DWORD)slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry");
         writeDWORD(0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler");
     }
+	
+
 
     SET_JUMP(0x0077A870, nglLoadTextureTM2);
+	
+	
 
     return true;
 
@@ -5338,7 +5696,6 @@ BOOL install_redirects()
 
         pause_menu_status_patch();
 
-        pause_menu_root_patch();
 
         unlockables_menu_patch();
     }
@@ -5350,8 +5707,6 @@ BOOL install_redirects()
         cg_mesh_patch();
 
         FEFloatingText_patch();
-
-        FEMultiLineText_patch();
 
         mash_virtual_base_patch();
 
@@ -5604,8 +5959,6 @@ BOOL install_redirects()
 
         main_menu_options_patch();
 
-        FrontEndMenuSystem_patch();
-
         game_data_meat_patch();
 
         TextureInputPack_patch();
@@ -5812,7 +6165,7 @@ std::vector<uint8_t> read_file(const fs::path& filePath) {
 }
 
 void enumerate_mods() {
-    fs::path modsDir = fs::current_path() / "mods";
+    fs::path modsDir = fs::current_path() / "mods/city_arena";
     if (!fs::is_directory(modsDir))
         return;
 
@@ -5842,6 +6195,940 @@ void enumerate_mods() {
 #   endif
 }
 
+void enumerate_mods2() {
+    fs::path modsDir = fs::current_path() / "mods/venom";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods3() {
+    fs::path modsDir = fs::current_path() / "mods/venom_spider";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods4() {
+    fs::path modsDir = fs::current_path() / "mods/pk_v01_feeding_time";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods5() {
+    fs::path modsDir = fs::current_path() / "mods/ultimate_spiderman";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods6() {
+    fs::path modsDir = fs::current_path() / "mods/arachno_man_costume";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods7() {
+    fs::path modsDir = fs::current_path() / "mods/usm_blacksuit_costume";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods8() {
+    fs::path modsDir = fs::current_path() / "mods/usm_wrestling_costume";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods9() {
+    fs::path modsDir = fs::current_path() / "mods/peter_parker_costume";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods10() {
+    fs::path modsDir = fs::current_path() / "mods/peter_parker_costume";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods11() {
+    fs::path modsDir = fs::current_path() / "mods/peter_parker";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods12() {
+    fs::path modsDir = fs::current_path() / "mods/peter_hooded";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods13() {
+    fs::path modsDir = fs::current_path() / "mods/rhino";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods14() {
+    fs::path modsDir = fs::current_path() / "mods/army_mary_jane";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods15() {
+    fs::path modsDir = fs::current_path() / "mods/gang1";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods16() {
+    fs::path modsDir = fs::current_path() / "mods/gang_hellions";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods17() {
+    fs::path modsDir = fs::current_path() / "mods/unlockables";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods18() {
+    fs::path modsDir = fs::current_path() / "mods/unlockables_chars_costumes";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods19() {
+    fs::path modsDir = fs::current_path() / "mods/unlockables_concept_art_a";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods20() {
+    fs::path modsDir = fs::current_path() / "mods/unlockables_concept_art_b";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+
+
+void enumerate_mods21() {
+    fs::path modsDir = fs::current_path() / "mods/unlockables_landmarks";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods22() {
+    fs::path modsDir = fs::current_path() / "mods/unlockables_covers";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods23() {
+    fs::path modsDir = fs::current_path() / "mods/unlockables_ltd_edition";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods24() {
+    fs::path modsDir = fs::current_path() / "mods/pk_venom_combat_tour2";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods25() {
+    fs::path modsDir = fs::current_path() / "mods/spidermanlogo";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods26() {
+    fs::path modsDir = fs::current_path() / "mods/venarge";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods27() {
+    fs::path modsDir = fs::current_path() / "mods/carnage";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods28() {
+    fs::path modsDir = fs::current_path() / "mods/game";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods29() {
+    fs::path modsDir = fs::current_path() / "mods/electro_suit";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods30() {
+    fs::path modsDir = fs::current_path() / "mods/electro_nosuit";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+void enumerate_mods31() {
+    fs::path modsDir = fs::current_path() / "mods/green_goblin";
+    if (!fs::is_directory(modsDir))
+        return;
+
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
+
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf"|| ext == ".xbmesh")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
+
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
+    }
+
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
+#   endif
+}
+
+
+
 BOOL install_hooks() {
     return set_text_to_writable() && install_redirects() && install_patches() &&
         restore_text_perms();
@@ -5870,7 +7157,40 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, [[maybe_unused]] LPVOID lpvReser
 
         bool res = install_hooks();
         if (res) 
-            enumerate_mods();
+        enumerate_mods();
+		enumerate_mods2();
+		enumerate_mods3();
+		enumerate_mods4();
+		enumerate_mods5();
+		enumerate_mods6();
+		enumerate_mods7();
+		enumerate_mods8();
+		enumerate_mods9();
+		enumerate_mods10();
+		enumerate_mods11();
+		enumerate_mods12();
+		enumerate_mods13();
+		enumerate_mods14();           
+		enumerate_mods15();
+		enumerate_mods16();
+		enumerate_mods17();
+		enumerate_mods18();
+		enumerate_mods19();
+		enumerate_mods20();
+		enumerate_mods21();           
+		enumerate_mods22();
+		enumerate_mods23();
+		enumerate_mods24();
+		enumerate_mods25();
+		enumerate_mods26();
+		enumerate_mods27();
+		enumerate_mods28();
+		enumerate_mods29();
+		enumerate_mods30();
+		enumerate_mods31();
+		    os_developer_options::os_developer_init();
+            ini_parser::parse("debug_menu.ini", os_developer_options::instance);
+
         return res;
 
     } else if (fdwReason == DLL_PROCESS_DETACH) {
