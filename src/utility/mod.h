@@ -5,6 +5,10 @@
 
 #include <map>
 #include <filesystem>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <cctype>
 
 struct Mod {
     std::filesystem::path Path;
@@ -13,6 +17,7 @@ struct Mod {
 };
 
 struct modGenericMesh {
+    Mod* mod;
     std::vector<float> vertices;
     std::vector<uint16_t> indices;
     IDirect3DVertexBuffer9* vertexBuffer = nullptr;
