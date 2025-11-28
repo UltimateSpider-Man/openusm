@@ -41,6 +41,8 @@ struct os_developer_options : singleton {
     //0x005E2CB0
     //virtual
     ~os_developer_options();
+	
+	void set_hero_name(const mString& hero_name);
 
 	void toggle_flag(flags_t a2);
 

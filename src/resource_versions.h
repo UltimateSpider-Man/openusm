@@ -20,3 +20,6 @@ struct resource_versions {
     //0x0050E530
     [[nodiscard]] mString to_string() const;
 };
+
+
+void resource_versions_patch();

@@ -38,6 +38,8 @@
 
 VALIDATE_SIZE(PauseMenuSystem, 0x3Cu);
 
+PauseMenuSystem *& pause_menu_system_ptr = var<PauseMenuSystem*>(0x00937B1C);
+
 PauseMenuSystem::PauseMenuSystem(font_index a2) : FEMenuSystem(17, a2) {
     if constexpr (1) {
         this->m_vtbl = 0x00893E00;
@@ -84,6 +86,7 @@ PauseMenuSystem::PauseMenuSystem(font_index a2) : FEMenuSystem(17, a2) {
     }
 }
 
+
 bool PauseMenuSystem::IsDialogActivated() {
     return this->m_index == 0;
 }
@@ -123,8 +126,31 @@ bool sub_7B1EE0() {
     return (bool) CDECL_CALL(0x007B1EE0);
 }
 
-void PauseMenuSystem::Deactivate() {
-    THISCALL(0x0060BEE0, this);
+void PauseMenuSystem::Activate(int a2, bool a3)
+{
+    if (this->m_index < 0)
+    {
+        this->MakeActive(a2);
+        
+        if (a3)
+            g_game_ptr->pause();
+        pause_menu_save_load_display* v4 = this->field_34;
+        this->field_38 = static_cast<uint8_t>(comic_panels::game_play_panel()->field_67);
+        
+
+		THISCALL(0x0060BE90, this, a2 ,a3);
+    }
+}
+
+void PauseMenuSystem::Deactivate()
+{
+    if (this->m_index >= 0)
+    {
+        this->MakeActive(0);
+        g_game_ptr->unpause();
+        comic_panels::game_play_panel()->field_67 = this->field_38;
+    }
+	THISCALL(0x0060BEE0, this);
 }
 
 void PauseMenuSystem::Update(Float a2)
@@ -213,16 +239,71 @@ void PauseMenuSystem::OnButtonPress(int a2, int a3) {
     }
 }
 
+void PauseMenuSystem::PauseMenuSystem2(font_index a2) {
+    if constexpr (1) {
+        this->m_vtbl = 0x00893E00;
+        this->field_2C = nullptr;
+        this->field_30 = new menu_nav_bar{};
+
+        this->field_4[this->m_count++] = new fe_dialog_text {this, 320, 240};
+
+        this->field_4[this->m_count++] = new pause_menu_transition {this, 320, 240};
+
+        this->field_4[this->m_count++] = new pause_menu_root {this, 320, 240};
+
+        this->field_4[this->m_count++] = new pause_menu_status {this, 320, 240};
+
+       // this->field_4[this->m_count++] = new pause_menu_options_display {this, 320, 240};
+
+        this->field_4[this->m_count++] = new pause_menu_controller {this, 320, 240};
+
+        this->field_4[this->m_count++] = new pause_menu_save_load_display {this, 320, 240};
+
+        this->field_4[this->m_count++] = new pause_menu_message_log {this, 320, 240};
+
+        this->field_4[this->m_count++] = new unlockables_menu {this, 320, 240};
+
+        this->field_4[this->m_count++] = new pause_menu_credits {this, 320, 240};
+
+        this->field_4[this->m_count++] = new character_viewer {this, 320, 240};
+
+        this->field_4[this->m_count++] = new alternate_costumes {this, 320, 240};
+
+        this->field_4[this->m_count++] = new concept_art {this, 320, 240};
+
+        this->field_4[this->m_count++] = new concept_art2 {this, 320, 240};
+        this->field_4[this->m_count++] = new covers {this, 320, 240};
+
+        this->field_4[this->m_count++] = new landmarks {this, 320, 240};
+
+        this->field_4[this->m_count++] = new ltd_edition {this, 320, 240};
+
+        this->LoadAll();
+        this->field_34 = CAST(this->field_34, *(this->field_4 + 6));
+    } else {
+        THISCALL(0x00647E50, this, a2);
+    }
+}
+
 void PauseMenuSystem_patch() {
 
     {
         FUNC_ADDRESS(address, &PauseMenuSystem::LoadAll);
         REDIRECT(0x00648557, address);
+		
+
     }
     return;
 
     {
         FUNC_ADDRESS(address, &PauseMenuSystem::OnButtonPress);
         set_vfunc(0x00893E38, address);
+	
     }
-}
+
+
+    {
+	
+			        FUNC_ADDRESS(address, &PauseMenuSystem::PauseMenuSystem2);
+        REDIRECT(0x00647E50, address);
+}}

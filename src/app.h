@@ -52,6 +52,7 @@ struct app : singleton {
 
     //0x005D6FC0
     void tick();
+	
 
     //0x005B2450
     static void create_inst();

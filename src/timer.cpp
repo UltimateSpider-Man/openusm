@@ -46,6 +46,82 @@ float Timer::sub_5821D0()
     return time_inc;
 }
 
+float Timer::super_slow_motion()
+{
+    float (__fastcall *func)(void *) = CAST(func, 0x005821D0);
+    auto time_inc = func(this);
+    
+    // Apply slow motion multiplier (0.25f = half speed)
+    time_inc *= 0.25f;
+    
+    FUNC_ADDRESS(address, &Timer::super_slow_motion);
+    REDIRECT(0x005D7000, address);
+    REDIRECT(0x005D702C, address);
+    
+    return time_inc;
+}
+
+
+float Timer::slow_motion()
+{
+    float (__fastcall *func)(void *) = CAST(func, 0x005821D0);
+    auto time_inc = func(this);
+    
+    // Apply slow motion multiplier (0.5f = half speed)
+    time_inc *= 0.5f;
+    
+    FUNC_ADDRESS(address, &Timer::slow_motion);
+    REDIRECT(0x005D7000, address);
+    REDIRECT(0x005D702C, address);
+    
+    return time_inc;
+}
+
+float Timer::normal_motion()
+{
+    float (__fastcall *func)(void *) = CAST(func, 0x005821D0);
+    auto time_inc = func(this);
+    
+    // Apply slow motion multiplier (1.0f = normal speed)
+    time_inc *= 1.0f;
+    
+    FUNC_ADDRESS(address, &Timer::normal_motion);
+    REDIRECT(0x005D7000, address);
+    REDIRECT(0x005D702C, address);
+    
+    return time_inc;
+}
+
+float Timer::speed_motion()
+{
+    float (__fastcall *func)(void *) = CAST(func, 0x005821D0);
+    auto time_inc = func(this);
+    
+    // Apply slow motion multiplier (1.5f = super speed)
+    time_inc *= 1.5f;
+    
+    FUNC_ADDRESS(address, &Timer::speed_motion);
+    REDIRECT(0x005D7000, address);
+    REDIRECT(0x005D702C, address);
+    
+    return time_inc;
+}
+
+float Timer::super_speed_motion()
+{
+    float (__fastcall *func)(void *) = CAST(func, 0x005821D0);
+    auto time_inc = func(this);
+    
+    // Apply slow motion multiplier (2.0f = super speed)
+    time_inc *= 2.0f;
+    
+    FUNC_ADDRESS(address, &Timer::super_speed_motion);
+    REDIRECT(0x005D7000, address);
+    REDIRECT(0x005D702C, address);
+    
+    return time_inc;
+}
+
 void Timer::sub_582180()
 {
     if (this->field_24) {
@@ -82,5 +158,10 @@ void Timer_patch()
         FUNC_ADDRESS(address, &Timer::sub_5821D0);
         REDIRECT(0x005D7000, address);
         REDIRECT(0x005D702C, address);
+ 
+			
+
     }
 }
+
+

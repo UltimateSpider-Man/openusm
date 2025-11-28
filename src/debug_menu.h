@@ -1,6 +1,8 @@
 #pragma once
 
 #include "mstring.h"
+#include "float.hpp"
+
 
 #include <algorithm>
 #include <cassert>
@@ -27,6 +29,13 @@ enum debug_menu_entry_type {
     BOOLEAN_NUM
 };
 
+
+enum menu_type {
+DEBUG_MENU_ENTRY_TYPE_FLOAT = 4
+};
+
+				
+
 extern const char *to_string(debug_menu_entry_type entry_type);
 
 enum custom_key_type {
@@ -45,9 +54,20 @@ extern std::string entry_render_callback_default(debug_menu_entry* entry);
 
 struct script_instance;
 
+struct additional_handler_info {
+    script_instance* instance;
+    int func_index;
+    void* handler_func;
+};
 struct debug_menu_entry {
 	char text[MAX_CHARS];
 	debug_menu_entry_type entry_type;
+	menu_type type;
+	    union {
+        bool* fptr;
+		bool* bptr;
+		bool bval;
+    } contents;
     union {
         float fval;
         float *p_fval;
@@ -60,6 +80,7 @@ struct debug_menu_entry {
 	void* data;
 	void* data1;
     uint16_t m_id {0};
+
     std::string (*render_callback)(debug_menu_entry *) = entry_render_callback_default;
     void (*m_game_flags_handler)(debug_menu_entry *) = nullptr;
     void (*frame_advance_callback)(debug_menu_entry *) = entry_frame_advance_callback_default;
@@ -73,10 +94,15 @@ struct debug_menu_entry {
     } field_20 {0.f, 1.f, 0.1f, 10.f};
     bool m_value_initialized {false};
     void *m_data = nullptr;
-        bool m_checked{false};
+	mString m_name;
+        bool m_checked{false};		
+		void (*m_script_handler)(debug_menu_entry*,script_instance* a3, const mString* a4) = nullptr;
 
         void set_checked(bool state) { m_checked = state; }
     bool is_checked() const { return m_checked; }
+	    debug_menu_entry *prev;
+    debug_menu_entry *next;
+
 
     void set_step_size(float a2)
     {
@@ -97,8 +123,11 @@ struct debug_menu_entry {
     {
         return this->m_data;
     }
+	
+ bool set_script_handler_from_char2(script_instance *inst, const char* a3,const char* a4,const char* a5,const char* a6,const char* a7,const char* a8,const char* a9);
 
 
+ bool set_script_handler_from_char(script_instance *inst, const char* a3);
 
     std::string get_script_handler()
     {
@@ -317,13 +346,26 @@ struct debug_menu_entry {
     {
         this->field_20.m_max_value = a2;
     }
+	
+	void set_type() {
+    m_value.bval = false;  // Initialize to default value
+}
+	
+	    void set_float_value(float a2)
+    {
+        this->field_20.m_max_value = a2;
+
+    }
+	
+	int render(int a1, int a2, bool a3);
 
     void set_bval(bool a2)
     {
         this->entry_type = BOOLEAN_E;
         this->m_value.bval = a2;
+		
     }
-    void set_bval2(bool a2)
+    bool set_bval2(bool a2)
     {
         this->entry_type = BOOLEAN_NUM;
         this->m_value.bval = a2;
@@ -377,11 +419,16 @@ struct debug_menu_entry {
         v2.m_step_scale = a2[3];
     }
 
-        debug_menu_entry* alloc_block(debug_menu* m, std::size_t n);
+      debug_menu_entry* alloc_block(debug_menu* m, std::size_t n);
 
     void set_game_flags_handler(void (*a2)(debug_menu_entry *))
     {
         this->m_game_flags_handler = a2;
+    }
+	
+    void set_script_entry_handler(void (*a2)(debug_menu_entry * ,script_instance * a3, mString a4))
+    {
+        this->m_script_handler;
     }
 
     void set_render_cb(std::string (*a2)(debug_menu_entry *))
@@ -402,6 +449,8 @@ struct debug_menu_entry {
         strncpy(this->text, p_text.c_str(), MAX_CHARS_SAFE);
     }
 
+
+
     debug_menu_entry(debug_menu *submenu);
 	
 };
@@ -409,6 +458,7 @@ struct debug_menu_entry {
 extern debug_menu_entry *g_debug_camera_entry;
 
 typedef void (*menu_handler_function)(debug_menu_entry*, custom_key_type key_type);
+
 
 extern void close_debug();
 
@@ -431,6 +481,11 @@ struct debug_menu {
     debug_menu *m_parent {nullptr};
     sort_mode_t m_sort_mode;
     size_t count;
+	    debug_menu_entry *first;
+    debug_menu_entry *last;
+    debug_menu_entry *highlighted;
+    mString field_C;
+
 
 
     void add_entry(debug_menu_entry *entry);
@@ -460,19 +515,58 @@ struct debug_menu {
     }
 
     static void init();
+	
+
+
+    static inline int menu_height = 0;
+
+    static inline int menu_width = 0;
+
+    static inline bool has_focus = false;
+    
+    static inline bool physics_state_on_exit = true;
+
+    static inline bool had_menu_this_frame = false;
+
+    static inline bool previous_input_state[10]{};
+
+    static inline bool virtual_input_state[10]{};
+
+    static inline bool current_input_state[10]{};
+
+    static inline bool virtual_input_repeating[10]{};
+
+    static inline float input_state_timer[10]{};
+
+	static void frame_advance(Float a1);
+	
+	    static void grab_focus();
+		
+		  static void show();
+		  
+		  
+	void render(int x, int y);	  
+
+
+void render_active();
+
+
+
+    static void gather_input(Float a1);
+
+
 
     static inline debug_menu *root_menu = nullptr;
 
-    static inline bool physics_state_on_exit = true;
 
-        static inline bool has_focus = false;
+static debug_menu* active_menu;
 		
-		static inline bool active_menu;
 };
 
 extern void* add_debug_menu_entry(debug_menu* menu, debug_menu_entry* entry);
 
 extern debug_menu * create_menu(const char* title, menu_handler_function function, DWORD capacity);
+
 
 extern debug_menu * create_menu(const char* title, debug_menu::sort_mode_t mode = debug_menu::sort_mode_t::undefined);
 
@@ -483,3 +577,5 @@ extern debug_menu_entry *create_menu_entry(debug_menu *menu);
 extern const char *to_string(custom_key_type key_type);
 
 extern void handle_game_entry(debug_menu_entry *entry, custom_key_type key_type);
+
+

@@ -17,12 +17,16 @@ struct PauseMenuSystem : FEMenuSystem {
 
     //0x00647E50
     PauseMenuSystem(font_index a2);
+	
+void	PauseMenuSystem2(font_index a2);
 
     //0x0060C160
     bool IsDialogActivated();
 
     //0x006430F0
     void LoadAll();
+	
+	void Activate(int a2, bool a3);
 
     //0x0060BEE0
     void Deactivate();
@@ -46,3 +50,7 @@ struct PauseMenuSystem : FEMenuSystem {
 };
 
 extern void PauseMenuSystem_patch();
+
+
+
+extern PauseMenuSystem *& pause_menu_system_ptr;

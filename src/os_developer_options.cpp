@@ -299,6 +299,10 @@ static auto & string_defaults {g_string_defaults};
 
 #endif
 
+void os_developer_options::set_hero_name(const mString& hero_name) {
+    set_hero_name(hero_name.c_str());
+}
+
 void os_developer_options::toggle_flag(os_developer_options::flags_t a2)
 {
   	this->m_flags[a2] = !this->m_flags[a2];

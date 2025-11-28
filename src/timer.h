@@ -31,6 +31,17 @@ struct Timer {
     Timer(Float a2, Float a3);
 
     float sub_5821D0();
+	
+	    float slow_motion();
+		
+			    float super_slow_motion();
+		
+			    float normal_motion();
+				
+				float speed_motion();
+				
+				float super_speed_motion();
+
 
     void sub_582180();
 };
@@ -38,3 +49,4 @@ struct Timer {
 extern Var<Timer *> g_timer;
 
 extern void Timer_patch();
+

@@ -721,13 +721,113 @@ void game::advance_state_legal(Float a2)
     //sp_log("advance_state_legal: end");
 }
 
-void game::handle_frame_locking(float *a1)
-{
+void game::handle_frame_locking(float *time_inc) {
     auto frame_lock = os_developer_options::instance->get_int(mString {"FRAME_LOCK"});
-    if ( frame_lock > 0 ) {
-        *a1 = 0.5 / frame_lock;
+    if (frame_lock > 0) {
+        *time_inc = 0.5 / frame_lock;
+    }
+    
+    // Slow motion implementation
+    auto slow_motion_enabled = os_developer_options::instance->get_int(mString {"SLOW_MOTION_ENABLED"});
+    if (slow_motion_enabled) {
+        *time_inc *= 0.25f; // Quarter speed (adjust as needed)
     }
 }
+
+
+float game::handle_frame_locking2(float time_inc) {
+    // Get frame lock setting (target FPS)
+    auto frame_lock = os_developer_options::instance->get_int(mString{"FRAME_LOCK"});
+    
+    // Get slow motion factor (1.0 = normal speed, 0.5 = half speed, 2.0 = double speed)
+    auto slow_motion_factor = os_developer_options::instance->get_int(mString{"SLOW_MOTION_FACTOR"});
+    
+    // Default to normal speed if not set
+    if (slow_motion_factor <= 0.0f) {
+        slow_motion_factor = 1.0f;
+    }
+    
+    if (frame_lock > 0) {
+        // Calculate base time increment (assuming 60 FPS base or 0.0166667 seconds per frame)
+        // Using 1.0 instead of 0.5 for standard frame time calculation
+        float base_time_inc = 1.0f / static_cast<float>(frame_lock);
+        
+        // Apply slow motion factor
+        return base_time_inc * slow_motion_factor;
+    } else {
+        // If frame lock is disabled, still apply slow motion to the current time increment
+        return time_inc * slow_motion_factor;
+    }
+}
+
+
+
+// Alternative implementation with more control options
+float game::handle_frame_locking_advanced(float time_inc) {
+    // Get frame lock setting
+    auto frame_lock = os_developer_options::instance->get_int(mString{"FRAME_LOCK"});
+    
+    // Get slow motion settings
+    auto slow_motion_enabled = os_developer_options::instance->get_int(mString{"FRAME_LOCK"});
+    auto slow_motion_factor = os_developer_options::instance->get_int(mString{"FRAME_LOCK"});
+    auto slow_motion_smooth = os_developer_options::instance->get_int(mString{"FRAME_LOCK"});
+    
+    // Static variable for smooth transitions
+    static float current_time_scale = 1.0f;
+    
+    // Determine target time scale
+    float target_time_scale = slow_motion_enabled ? slow_motion_factor : 1.0f;
+    
+    // Smooth transition if enabled
+    if (slow_motion_smooth) {
+        float lerp_speed = 0.1f; // Adjust for smoother/faster transitions
+        current_time_scale += (target_time_scale - current_time_scale) * lerp_speed;
+    } else {
+        current_time_scale = target_time_scale;
+    }
+    
+    // Clamp time scale to reasonable values
+    current_time_scale = std::max(0.01f, std::min(10.0f, current_time_scale));
+    
+    float result_time_inc;
+    if (frame_lock > 0) {
+        // Calculate frame-locked time increment
+        float base_time_inc = 1.0f / static_cast<float>(frame_lock);
+        result_time_inc = base_time_inc * current_time_scale;
+    } else {
+        // Apply time scale to existing time increment
+        result_time_inc = time_inc * current_time_scale;
+    }
+    
+    // Optional: Debug output
+    #ifdef DEBUG_FRAME_TIMING
+    static int frame_counter = 0;
+    if (++frame_counter % 60 == 0) {
+        printf("Frame Lock: %d, Time Scale: %.2f, Time Inc: %.6f\n", 
+               frame_lock, current_time_scale, result_time_inc);
+    }
+    #endif
+    
+    return result_time_inc;
+}
+
+// Simple version matching your exact request
+float game::handle_frame_locking_simple(float time_inc) {
+    auto frame_lock = os_developer_options::instance->get_int(mString{"FRAME_LOCK"});
+    
+    // Simple slow motion: get a multiplier value
+    // 1.0 = normal, 0.5 = half speed, 2.0 = double speed
+    auto time_scale = os_developer_options::instance->get_int(mString{"TIME_SCALE"});
+    if (time_scale <= 0.0f) time_scale = 1.0f;
+    
+    if (frame_lock > 0) {
+        return (0.5f / static_cast<float>(frame_lock)) * time_scale;
+    } else {
+        // If no frame lock, just apply time scale
+        return time_inc * time_scale;
+    }
+}
+
 
 void game_packs_modified_callback(_std::vector<resource_key> &a1) {
     CDECL_CALL(0x0054F6D0, &a1);
@@ -871,6 +971,9 @@ void game::pause() {
                     this->field_2B5 = true;
                 } else {
                     this->field_2B5 = false;
+					            if (sounds_paused()) {
+                sound_manager::unpause_all_sounds();
+            }
                 }
             }
         }
@@ -1086,7 +1189,7 @@ void game::handle_cameras(input_mgr *a2, const Float &time_inc)
     sp_log("%d %d", this->is_user_camera_enabled(),
             os_developer_options::instance->get_int(static_cast<os_developer_options::ints_t>(2)));
 
-    if constexpr (0)
+    if constexpr (1)
     {
         if ( !this->flag.level_is_loaded ) {
             return;

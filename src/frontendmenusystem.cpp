@@ -92,12 +92,15 @@ FrontEndMenuSystem::FrontEndMenuSystem() : FEMenuSystem(7, static_cast<font_inde
         }
 
     } else {
-        THISCALL(0x00648580, this);
+		
+	  THISCALL(0x00648580, this);
+
     }
 }
 
 void FrontEndMenuSystem::sub_60C240() {
-    THISCALL(0x0060C240, this);
+		    void (__fastcall *func)(void *, void *) = (decltype(func)) 0x0060c240;
+        func(this, nullptr);
 }
 
 bool FrontEndMenuSystem::WaitForMemCheck() {
@@ -110,7 +113,8 @@ bool FrontEndMenuSystem::sub_60C230() {
 }
 
 void FrontEndMenuSystem::sub_619030(bool a2) {
-    THISCALL(0x00619030, this, a2);
+	    void (__fastcall *func)(void *, void *, bool) = (decltype(func)) 0x00619030;
+        func(this, nullptr, a2);
 }
 
 void FrontEndMenuSystem::MakeActive(int a2) {
@@ -147,7 +151,9 @@ void FrontEndMenuSystem::RenderLoadMeter(bool a1) {
             this->sub_619030(a1);
         }
     } else {
-        THISCALL(0x00619230, this, a1);
+		
+	    void  (__fastcall *func)(void *, void *,bool) = (decltype(func)) 0x00619230;
+        func(this, nullptr, a1);
     }
 }
 
@@ -332,15 +338,20 @@ void FrontEndMenuSystem::GoNextState() {
 void FrontEndMenuSystem::BringUpDialogBox(int a2,
                                           FrontEndMenuSystem::fe_state a3,
                                           FrontEndMenuSystem::fe_state a4) {
-    THISCALL(0x00634300, this, a2, a3, a4);
+	
+		    void  (__fastcall *func)(void *, void *,int,  FrontEndMenuSystem::fe_state, FrontEndMenuSystem::fe_state) = (decltype(func)) 0x00634300;
+        func(this, nullptr, a2 ,a3, a4);
 }
 
 void FrontEndMenuSystem::sub_60C290() {
-    THISCALL(0x0060C290, this);
+	
+			    void  (__fastcall *func)(void *, void *) = (decltype(func)) 0x0060C290;
+        func(this, nullptr);
 }
 
 void FrontEndMenuSystem::sub_6342D0() {
-    THISCALL(0x006342D0, this);
+			    void  (__fastcall *func)(void *, void *) = (decltype(func)) 0x006034D0;
+        func(this, nullptr);
 }
 
 void FrontEndMenuSystem_patch() {

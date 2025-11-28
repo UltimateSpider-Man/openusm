@@ -155,6 +155,8 @@ extern void render_beam(const vector3d &a1, const vector3d &a2, color32 a3, Floa
 
 extern void render_quad(const vector3d &pt1, const vector3d &pt2, const vector3d &pt3, const vector3d &pt4, color32 col, bool double_sided);
 
+extern void render_billboard(const vector3d &arg0, color32 a2, float a5, const char *a4);
+
 struct line_info;
 
 extern void debug_render_line_info(line_info *a1, [[maybe_unused]] char a2, int a3);

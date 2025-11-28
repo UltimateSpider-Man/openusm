@@ -36,6 +36,8 @@ struct spider_monkey {
 
     //0x004B6890
     static void render();
+	
+	static void render2(const vector3d& arg0, color32 a2, float a5, const char *a4);
 
     //0x004B6770
     static void frame_advance(Float a1);

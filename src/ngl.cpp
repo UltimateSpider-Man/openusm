@@ -2635,6 +2635,39 @@ int modImportMesh(IDirect3DDevice9* dev, modGenericMesh& data, char* buf, size_t
     //        data.bones.push_back(tmp);
         }
     }
+	
+	if (hasFullVB) {
+
+struct VertexBoneData {
+float indices[4] {};
+float weights[4] {};
+};
+
+
+std::vector<VertexBoneData> vertexBones (mesh->mNumVertices);
+for (unsigned int boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) { const aiBone* bone = mesh->mBones [boneIndex];
+aiVector3D position;
+aiQuaternion rotation;
+aiVector3D scale;
+bone->mNode->mTransformation. Decompose (scale, rotation, position);
+/*modGenericMesh:: Bone tmp;
+tmp.position= position;
+tmp.rotation = rotation;
+tmp.scale
+=
+scale;
+
+data.bones.push_back(tmp);*/
+for (unsigned int w = 0; w< bone->mNumWeights; ++w) { const aiVertexWeight& vw = bone->mWeights[w];
+for (int i = 0; i < 4; ++i) {
+if (vertexBones [vw.mVertexId].weights[i] == 0.0f) {
+vertexBones[vw.mVertexId].indices[i] = static_cast<float>(boneIndex); vertexBones[vw.mVertexId].weights[i] = vw.mWeight;
+break;
+      }
+    } 
+   } 
+  } 
+}
 
     // fill buffers    
     for (unsigned int i = 0; i < mesh->mNumVertices; ++i) {

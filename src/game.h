@@ -50,6 +50,8 @@ enum class game_state
     POP_PROCESS = 14u,
 };
 
+
+
 struct game;
 
 //0x006063C0
@@ -192,8 +194,15 @@ struct game {
     void go_next_state();
 
     game_state get_cur_state() const;
+	
+	    void handle_frame_locking(float *a1);
 
-    void handle_frame_locking(float *a1);
+    float handle_frame_locking2(float time_inc);
+	
+	float handle_frame_locking_advanced(float time_inc);
+	
+	float handle_frame_locking_simple(float time_inc);
+	
 
     //0x00548C10
     void begin_hires_screenshot(int a2, int a3);

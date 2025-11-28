@@ -1068,6 +1068,7 @@ std::string camera_render_callback(debug_menu_entry *a2)
     }
 }
 
+
 void game_flags_handler(debug_menu_entry *a1)
 {
     enum {

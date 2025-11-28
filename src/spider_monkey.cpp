@@ -2,6 +2,7 @@
 
 #include "vector2di.h"
 #include "ngl.h"
+#include "app.h"
 #include "ngl_font.h"
 #include "func_wrapper.h"
 #include "input_mgr.h"
@@ -11,6 +12,8 @@
 #include "utility.h"
 #include "render_text.h"
 #include "us_lighting.h"
+#include "terrain.h"
+#include "wds.h"
 
 #include "variables.h"
 
@@ -28,8 +31,10 @@ float spider_monkey::delta_callback(int a1) {
 
 #include "game.h"
 
+#include "timer.h"
 
-	
+
+
 	
 	        inline void mini_map_zoom(debug_menu_entry* a1)
     {
@@ -1239,6 +1244,12 @@ float spider_monkey::delta_callback(int a1) {
             break;
         }
     }
+	
+
+
+
+
+
 
 void spider_monkey::render()
 {
@@ -1249,11 +1260,18 @@ void spider_monkey::render()
     }
 
     {
-		        if (os_developer_options::instance->get_int(mString{ "FRAME_LOCK" }))
+		
+	        if (os_developer_options::instance->get_flag(mString{ "SHOW_OBBS" }))
         {
-			timeBeginPeriod(100000);
-            timeGetTime();
-        }
+                    auto *the_terrain = g_world_ptr->get_the_terrain();
+        the_terrain->show_obbs();
+        }	
+
+	        if (os_developer_options::instance->get_flag(mString{ "DISABLE_AUDIO_BOXES" }))
+        {
+            app::cleanup();
+        }					 
+
         if (os_developer_options::instance->get_flag(mString{ "SHOW_DEBUG_INFO" }))
         {
             g_game_ptr->show_debug_info();
@@ -1266,6 +1284,10 @@ void spider_monkey::render()
                     debug_menu_entry a1;
                 a1.set_game_flags_handler(mini_map_zoom);
             }
+			
+	
+
+            
 			
 		    int TOD = os_developer_options::instance->get_int(mString { "TIME_OF_DAY" });
             if (TOD == -1) {

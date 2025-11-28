@@ -11,6 +11,8 @@
 #include "utility.h"
 #include "variables.h"
 
+#include "movie_manager.h"
+
 
 VALIDATE_OFFSET(FEMultiLineText, lines, 0x88);
 VALIDATE_SIZE(FEMultiLineText, 0xA0u);
@@ -376,6 +378,14 @@ void FEMultiLineText::SetTextBoxAllocNoLocalize(mString a2, int a6, Float a7) {
     THISCALL(0x00633C00, this, a2, a6, a7);
 }
 
+void FEMultiLineText::ReadFileBoxFormat(FEMultiLineText* self, const char* path, int width, bool replace_newlines) {
+
+movie_manager::load_and_play_movie("credits", nullptr, false);
+
+THISCALL(0x00633DB0, this, self,  path,  width,  replace_newlines);
+
+}
+
 void FEMultiLineText::SetNumLines(int n) {
     TRACE("FEMultiLineText::SetNumLines", std::to_string(n).c_str());
 
@@ -400,6 +410,8 @@ void FEMultiLineText_patch() {
         FUNC_ADDRESS(address, &FEMultiLineText::_unmash);
         set_vfunc(0x0087AE5C, address);
     }
+	
+
 
     {
         FUNC_ADDRESS(address, &FEMultiLineText::_SetTextNoLocalize);
@@ -457,6 +469,15 @@ void FEMultiLineText_patch() {
         {
             FUNC_ADDRESS(address, &FEMultiLineText::SetTextBoxAllocNoLocalize);
             set_vfunc(addr, address);
+        }
+		
+		addr += 0x4;
+		
+		addr += 0x4;
+		
+        {
+           FUNC_ADDRESS(address, &FEMultiLineText::ReadFileBoxFormat);
+           set_vfunc(addr, address);
         }
 
         {

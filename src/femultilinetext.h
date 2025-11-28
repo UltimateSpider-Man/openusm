@@ -64,6 +64,10 @@ struct FEMultiLineText : FEText {
     //0x0043DAB0
     //virtual
     void GetPos(Float &a2, Float &a3);
+	
+	void ReadFileBoxFormat(FEMultiLineText* self, const char* path, int width, bool replace_newlines);
+
+
 
     //0x0043DA90
     //virtual

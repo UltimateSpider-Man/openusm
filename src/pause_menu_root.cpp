@@ -17,6 +17,10 @@
 #include "vtbl.h"
 #include "wds.h"
 
+
+
+
+
 VALIDATE_SIZE(pause_menu_root, 0x100u);
 
 pause_menu_root::pause_menu_root(FEMenuSystem *a2, int a3, int a4) : FEMenu(a2, 0, a3, a4, 8, 0) {
@@ -34,7 +38,7 @@ void pause_menu_root::_Load()
 {
     TRACE("pause_menu_root::Load");
 
-    if constexpr (0)
+    if constexpr (1)
     {
         auto *v2 = bit_cast<PauseMenuSystem *>(this->field_AC)->field_2C;
 
@@ -205,6 +209,121 @@ void pause_menu_root::update_switching_heroes() {
     --this->field_30;
 }
 
+// Assumes your existing types, globals, and virtuals:
+// - mission_manager, comic_panels::game_play_panel, FEManager::PlayInterfaceSound
+// - g_world_ptr, g_cursor, byte_965C21, byte_922994, dword_922908
+// - Direct3D fog helpers, etc.
+// - string_hash stru_96B9F0, 96B9EC, 96B9E8, 96B9E4, 96B9E0, 96B9DC, 96B9D8, 96B9D4, 96B9D0, 96B9F8, 96B9F4, 96B9FC
+// - string_hash stru_96BA08 (used as a bitfield gate like in the decompiled code)
+// - aFePsAccept_0 / similar are already bound in those globals in your build.
+
+
+int addr_965c21 = 1;
+		 
+
+void pause_menu_root::OnCross(float* a2, int a3)
+{
+    if (addr_965c21) return;
+
+    // If we’re in a special sub-mode, defer to base handler (kept from original)
+    if (field_B0 == 9) {
+        return;
+    }
+
+    // The decompiled logic gates almost everything behind these checks
+    if (field_30 || field_2C) return;
+
+ {
+
+        return;
+
+    };
+
+    // Helper that resets the list widgets like the decompiled loops do
+
+	 if (!field_F8)
+    {
+        switch (field_B0)
+        {
+            case 0: { // Resume / Accept variant A
+                    return;
+
+
+
+               // play_ui(ensure_sound_hash(0x20,  stru_96B9F0 /* "FE_PS_ACCEPT" */));
+                return;
+            }
+
+            case 1: { // Resume / Accept variant B
+
+            }
+
+            case 2: { // Resume / Accept variant C
+
+             //   play_ui(ensure_sound_hash(0x80,  stru_96B9E8 /* "FE_PS_ACCEPT" */));
+                return;
+            }
+
+            case 3: { // Options (fog toggle path present in decomp)
+			
+
+            }
+
+            case 5: { // Quit / End Mission / Confirmation path
+
+
+            }
+
+            case 6: { // Extras / Help
+
+                return;
+            }
+
+            case 7: { // Progression / Resume branch
+
+
+                }
+                return;
+            }
+
+                switch (field_B0)
+        {    case 8: { // Character select toggle when story not active
+
+
+
+
+                }
+                return;
+            } }
+
+    
+
+
+        
+        else if (field_B0 == 7) {
+            // Progression Mission (script) if mission state allows
+
+          
+
+
+                // Show “not available” text + cursor mode
+               // int h = field_A0->base.m_vtbl->field_114(field_A0, -1082130432);
+              //  field_A0->base.m_vtbl->SetTextBox(field_A0, 269, h);
+
+            
+        }
+        else if (field_B0 == 5) {
+            // Confirm “quit/end” path
+           // sub_61C520(this);
+        
+    }
+
+    // Common cleanup path (executed when the original decomp hopped to LABEL_24)
+    if (!field_2D) {
+
+}}
+
+
 void pause_menu_root_patch() {
 
     {
@@ -217,9 +336,17 @@ void pause_menu_root_patch() {
         FUNC_ADDRESS(address, &pause_menu_root::Update);
         set_vfunc(0x00893F58, address);
     }
-
+	
+	
+    {
+        FUNC_ADDRESS(address, &pause_menu_root::OnCross);
+        set_vfunc(0x008A68D4, address);
+    }
     {
         FUNC_ADDRESS(address, &pause_menu_root::OnUp);
         //set_vfunc(0x00893F74, address);
     }
 }
+
+
+pause_menu_root *& pause_menu_root_ptr = var<pause_menu_root*>(0x0965C21);
