@@ -58,7 +58,7 @@ endif()
 
 option(USE_GLM "description" OFF)
 option(USE_FSTREAM "" OFF)
-option(BUILD_BINKW32_EXE    "Build binkw32 as an executable (for WSL convenience)" ON)
+option(BUILD_USM    "Build openusm as an executable (for WSL convenience)" ON)
 
 option(CHECK_STRUCT_SIZES "" ON)
 
@@ -104,9 +104,9 @@ target_compile_options(mash
 target_link_libraries(mash PUBLIC utility variables)
 
 file(GLOB SRC "./src/*.cpp" "./src/*.h")
-add_library(binkw32 SHARED main.cpp ${SRC})
-add_executable(binkw32_exe USM.cpp ${SRC})
-target_compile_options(binkw32
+add_library(openusm SHARED main.cpp ${SRC})
+add_executable(USM USM.cpp ${SRC})
+target_compile_options(openusm
   PRIVATE
     ${flags}
 )
@@ -283,14 +283,14 @@ target_link_libraries(physics PUBLIC utility ngl)
 
 
 if(USE_FSTREAM)
-    target_compile_definitions(binkw32 PUBLIC USE_FSTREAM)
-	target_compile_definitions(binkw32_exe PUBLIC USE_FSTREAM)
+    target_compile_definitions(openusm PUBLIC USE_FSTREAM)
+	target_compile_definitions(USM PUBLIC USE_FSTREAM)
 endif()
 
-target_include_directories(binkw32 PUBLIC "include")
-target_include_directories(binkw32_exe PUBLIC "include")
-target_include_directories(binkw32 PUBLIC "./src/nfl/src/")
-target_include_directories(binkw32_exe PUBLIC "./src/nfl/src/")
+target_include_directories(openusm PUBLIC "include")
+target_include_directories(USM PUBLIC "include")
+target_include_directories(openusm PUBLIC "./src/nfl/src/")
+target_include_directories(USM PUBLIC "./src/nfl/src/")
 
 target_include_directories(chuck PUBLIC "include" "src")
 target_include_directories(tx PUBLIC "include" "src")
@@ -316,36 +316,36 @@ ExternalProject_Add(
         -DCMAKE_CXX_FLAGS=-static-libgcc\ -static-libstdc++
     INSTALL_COMMAND ""
 )
-target_include_directories(binkw32 PUBLIC "./assimp/include/")
-target_include_directories(binkw32_exe PUBLIC "./assimp/include/")
-target_link_directories(binkw32 PUBLIC ${CMAKE_BINARY_DIR}/assimp-build/lib)
-add_dependencies(binkw32_exe AssimpProject)
+target_include_directories(openusm PUBLIC "./assimp/include/")
+target_include_directories(USM PUBLIC "./assimp/include/")
+target_link_directories(openusm PUBLIC ${CMAKE_BINARY_DIR}/assimp-build/lib)
+add_dependencies(USM AssimpProject)
 
-target_link_directories(binkw32_exe PUBLIC ${CMAKE_BINARY_DIR}/assimp-build/lib)
-add_dependencies(binkw32 AssimpProject)
+target_link_directories(USM PUBLIC ${CMAKE_BINARY_DIR}/assimp-build/lib)
+add_dependencies(openusm AssimpProject)
 
 
 target_include_directories(test_tx PUBLIC "include" "src")
 
 target_link_libraries(ngl_dx PUBLIC d3dx9)
 
-target_link_directories(binkw32 PUBLIC ${CMAKE_FIND_ROOT_PATH}/include)
-target_link_directories(binkw32 PUBLIC ${CMAKE_FIND_ROOT_PATH}/lib)
-target_link_directories(binkw32_exe PUBLIC ${CMAKE_FIND_ROOT_PATH}/include)
-target_link_directories(binkw32_exe PUBLIC ${CMAKE_FIND_ROOT_PATH}/lib)
-target_link_libraries(binkw32 PUBLIC physics)
-target_link_libraries(binkw32_exe PUBLIC physics)
-target_link_libraries(binkw32_exe PUBLIC ${_COMMON_LINK_LIBS})
-target_link_libraries(binkw32 PUBLIC charanimtype mash chuck nfl ngl nal nsl utility)
-target_link_libraries(binkw32 PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z)
+target_link_directories(openusm PUBLIC ${CMAKE_FIND_ROOT_PATH}/include)
+target_link_directories(openusm PUBLIC ${CMAKE_FIND_ROOT_PATH}/lib)
+target_link_directories(USM PUBLIC ${CMAKE_FIND_ROOT_PATH}/include)
+target_link_directories(USM PUBLIC ${CMAKE_FIND_ROOT_PATH}/lib)
+target_link_libraries(openusm PUBLIC physics)
+target_link_libraries(USM PUBLIC physics)
+target_link_libraries(USM PUBLIC ${_COMMON_LINK_LIBS})
+target_link_libraries(openusm PUBLIC charanimtype mash chuck nfl ngl nal nsl utility)
+target_link_libraries(openusm PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z)
 
-target_link_libraries(binkw32_exe PUBLIC charanimtype mash chuck nfl ngl nal nsl utility)
-target_link_libraries(binkw32_exe PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z)
+target_link_libraries(USM PUBLIC charanimtype mash chuck nfl ngl nal nsl utility)
+target_link_libraries(USM PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z)
 
 
 if(USE_GLM)
-    target_link_libraries(binkw32 PUBLIC glm::glm)
-	    target_link_libraries(binkw32_exe PUBLIC glm::glm)
+    target_link_libraries(openusm PUBLIC glm::glm)
+	    target_link_libraries(USM PUBLIC glm::glm)
 endif()
 
 option(ENABLE_TESTS ON "")
@@ -356,15 +356,15 @@ option(ENABLE_TESTS ON "")
 
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../Ultimate Spider-Man/")
-    add_custom_command(TARGET binkw32 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/build/binkw32.dll" "${CMAKE_CURRENT_SOURCE_DIR}/../Ultimate Spider-Man/binkw32.dll"
+    add_custom_command(TARGET openusm POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/build/openusm.dll" "${CMAKE_CURRENT_SOURCE_DIR}/../Ultimate Spider-Man/openusm.dll"
         COMMAND_EXPAND_LISTS
         )
 endif()
-    if(BUILD_BINKW32_EXE)
-        add_custom_command(TARGET binkw32_exe POST_BUILD
+    if(BUILD_USM)
+        add_custom_command(TARGET USM POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy
-                "$<TARGET_FILE:binkw32_exe>"
-                "${CMAKE_CURRENT_SOURCE_DIR}/../Ultimate Spider-Man/binkw32.exe"
+                "$<TARGET_FILE:USM>"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../Ultimate Spider-Man/USM.exe"
         )
     endif()
