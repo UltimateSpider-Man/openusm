@@ -61,6 +61,19 @@ option(USE_FSTREAM "" OFF)
 option(BUILD_USM    "Build openusm as an executable (for WSL convenience)" ON)
 
 option(CHECK_STRUCT_SIZES "" ON)
+set(CMAKE_BUILD_TYPE Release)
+
+# C Flags with optimization
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -static -std=gnu11 -Os -ffunction-sections -fdata-sections")
+
+# C++ Flags with optimization
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fomit-frame-pointer -m32 -fno-asynchronous-unwind-tables -masm=intel -static -Os -ffunction-sections -fdata-sections")
+
+# Linker flags with dead code elimination and strip
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -m32 -Wl,--gc-sections -Wl,--strip-all -s")
+
+# Optional: Add these options for even more size reduction
+option(STRIP_EXECUTABLE "Strip the executable after build" ON)
 
 if(CHECK_STRUCT_SIZES)
     add_compile_definitions(CHECK_STRUCT_SIZES)
@@ -367,4 +380,40 @@ endif()
                 "$<TARGET_FILE:USM>"
                 "${CMAKE_CURRENT_SOURCE_DIR}/../Ultimate Spider-Man/USM.exe"
         )
+		file(WRITE ${CMAKE_BINARY_DIR}/usm_icon.rc "IDI_ICON1 ICON DISCARDABLE \"${CMAKE_SOURCE_DIR}/icon.ico\"\n")
     endif()
+# Add the resource file to the USM executable
+if(MINGW)
+    # Compile the resource file
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/usm_icon.o
+        COMMAND ${CMAKE_RC_COMPILER} -i ${CMAKE_BINARY_DIR}/usm_icon.rc -o ${CMAKE_BINARY_DIR}/usm_icon.o
+        DEPENDS ${CMAKE_BINARY_DIR}/usm_icon.rc
+        COMMENT "Compiling resource file for icon"
+    )
+    
+    # Link the compiled resource to the executable
+    target_sources(USM PRIVATE ${CMAKE_BINARY_DIR}/usm_icon.o)
+endif()
+if(STRIP_EXECUTABLE)
+    add_custom_command(TARGET USM POST_BUILD
+        COMMAND ${CMAKE_STRIP} --strip-all "$<TARGET_FILE:USM>"
+        COMMENT "Stripping USM.exe"
+    )
+endif()
+
+# Optional: Use UPX compression (requires UPX installed)
+option(USE_UPX "Compress executable with UPX" OFF)
+
+if(USE_UPX)
+    find_program(UPX_EXECUTABLE upx)
+    if(UPX_EXECUTABLE)
+        add_custom_command(TARGET USM POST_BUILD
+            COMMAND ${UPX_EXECUTABLE} --best --lzma "$<TARGET_FILE:USM>"
+            COMMENT "Compressing USM.exe with UPX"
+        )
+    else()
+        message(WARNING "UPX not found, skipping compression")
+    endif()
+endif()
+
