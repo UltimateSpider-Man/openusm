@@ -5,6 +5,8 @@
 
 #include <windows.h>
 
+#include <dsound.h>
+
 // @todo: global config
 struct GameConfig {
 	bool DebugMode = false;
@@ -100,6 +102,10 @@ extern Var<bool> byte_965BF6;
 
 struct IDirect3DDevice9;
 extern Var<IDirect3DDevice9 *> g_Direct3DDevice;
+
+extern IDirectSound8 *& g_directSound;
+
+
 
 extern Var<float> g_tan_half_fov_ratio;
 

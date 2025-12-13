@@ -54,6 +54,9 @@ Var<bool> bExit{0x0095C178};
 Var<bool> byte_965BF9 = {0x00965BF9};
 
 
+IDirectSound8 *& g_directSound = var<IDirectSound8 *>(0x00987518);
+
+
 Var<HCURSOR> hCursor = {0x0096596C};
 
 Var<HANDLE> hEvent{0x00965C5C};
