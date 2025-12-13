@@ -681,19 +681,30 @@ void parse_cmd(const char *str)
     }
 }
 
-void create_sound_ifc(HWND a1) {
-    if constexpr (1) {
-        static Var<LPDIRECTSOUND8> dword_987518 = {0x00987518};
+#include <dxerr8.h>
 
-        auto &v1 = dword_987518();
-        if (dword_987518() != nullptr ||
-            (DirectSoundCreate8(&IID_IDirectSound8, &dword_987518(), nullptr),
-             (v1 = dword_987518()) != nullptr)) {
-            v1->lpVtbl->SetCooperativeLevel(v1, a1, DISCL_NONEXCLUSIVE);
+void create_sound_ifc(HWND a1)
+{
+    if constexpr (0)
+    {
+        HRESULT hr = -1;
+        if (g_directSound != nullptr || (hr = DirectSoundCreate8(&IID_IDirectSound8, &g_directSound, nullptr), g_directSound != nullptr))
+        {
+            IDirectSound8_SetCooperativeLevel(g_directSound, a1, DISCL_NONEXCLUSIVE);
         }
-    } else {
+
+        if (FAILED(hr)) {
+            char tempstr[512] {};
+            sprintf(tempstr, "DirectSound8Create error: %s - %s", DXGetErrorString8(hr), DXGetErrorDescription8(hr));
+            MessageBox (nullptr, tempstr, "Error",  MB_OK | MB_ICONINFORMATION);
+        }
+    }
+    else
+    {
         CDECL_CALL(0x0081E2D0, a1);
     }
+
+    assert(g_directSound != nullptr);
 }
 
 void sub_581780() {
@@ -701,9 +712,6 @@ void sub_581780() {
     _controlfp(_PC_24, _MCW_PC);
 }
 
-bool sub_81C2A0(unsigned int a1, unsigned int a2, char a3) {
-    return (bool) CDECL_CALL(0x0081C2A0, a1, a2, a3);
-}
 
 Var<bool> byte_965BF7{0x00965BF7};
 
@@ -4726,7 +4734,164 @@ bool __fastcall slf__create_debug_menu_entry(script_library_class::function* fun
     return 1;
 }
 
+#include <dxdiag.h>
+
+
+bool CheckDirectXVersionViaDxDiag(uint32_t a1, uint32_t a2, char a3)
+{
+    TRACE("CheckDirectXVersionViaDxDiag");
+
+    if constexpr (0)
+    {
+        bool bGotDirectXVersion = false;
+
+        uint32_t dwDirectXVersionMajor {};
+        uint32_t dwDirectXVersionMinor {};
+        int cDirectXVersionLetter {};
+
+        char Buffer[260] {};
+        assert(GetSystemDirectoryA(Buffer, 260u));
+
+        Buffer[259] = '\0';
+        char Dest[268] {};
+        sprintf(Dest, "%s\\ole32.dll", Buffer);
+
+        assert( GetModuleHandleA(Dest) );
+
+        auto ole32_dll = LoadLibrary(Dest);
+        assert(ole32_dll);
+
+        auto co_initialize = bit_cast<HRESULT (__stdcall *)(void *)>(GetProcAddress(ole32_dll, "CoInitialize"));
+        auto co_create_instance = bit_cast<HRESULT (__stdcall *)(const IID &, LPUNKNOWN, DWORD, const IID &, LPVOID *)>(GetProcAddress(ole32_dll, "CoCreateInstance"));
+        auto co_uninitialize =  bit_cast<void (__stdcall *)()>(GetProcAddress(ole32_dll, "CoUninitialize"));
+
+        assert(co_initialize && co_create_instance && co_uninitialize);
+
+#if 0
+        auto hr = CoInitialize(nullptr);
+#else
+        auto hr = co_initialize(nullptr);
+#endif
+
+        bool bCleanupCOM = SUCCEEDED(hr);
+        IDxDiagProvider *pDxDiagProvider = nullptr;
+
+#if 0
+        hr = CoCreateInstance(CLSID_DxDiagProvider, nullptr, CLSCTX_INPROC_SERVER, IID_IDxDiagProvider, (LPVOID *)&pDxDiagProvider);
+#else
+        hr = co_create_instance(CLSID_DxDiagProvider, nullptr, CLSCTX_INPROC_SERVER, IID_IDxDiagProvider, (LPVOID *)&pDxDiagProvider);
+#endif
+
+        if ( SUCCEEDED(hr) )
+        {
+            DXDIAG_INIT_PARAMS dxDiagInitParam;
+            ZeroMemory( &dxDiagInitParam, sizeof(DXDIAG_INIT_PARAMS) );
+            dxDiagInitParam.dwSize = sizeof(DXDIAG_INIT_PARAMS);
+            dxDiagInitParam.dwDxDiagHeaderVersion = DXDIAG_DX9_SDK_VERSION;
+            dxDiagInitParam.bAllowWHQLChecks = false;
+            dxDiagInitParam.pReserved = nullptr;
+
+            hr = IDxDiagProvider_Initialize(pDxDiagProvider, &dxDiagInitParam);
+            if ( SUCCEEDED(hr) )
+            {
+                IDxDiagContainer *pDxDiagRoot = nullptr;
+                IDxDiagContainer *pDxDiagSystemInfo = nullptr;
+
+                hr = IDxDiagProvider_GetRootContainer(pDxDiagProvider, &pDxDiagRoot);
+                if ( SUCCEEDED(hr) )
+                {
+                    hr = IDxDiagContainer_GetChildContainer(pDxDiagRoot, L"DxDiag_SystemInfo", &pDxDiagSystemInfo);
+                    if ( SUCCEEDED(hr) )
+                    {
+                        bool bSuccessGettingMajor = false;
+                        bool bSuccessGettingMinor = false;
+                        bool bSuccessGettingLetter = false;
+
+                        VARIANT var {};
+                        VariantInit(&var);
+
+                        hr = IDxDiagContainer_GetProp(pDxDiagSystemInfo, L"dwDirectXVersionMajor", &var);
+                        if ( SUCCEEDED(hr) && var.vt == VT_UI4 ) {
+                            dwDirectXVersionMajor = var.ulVal;
+                            bSuccessGettingMajor = true;
+                        }
+
+                        VariantClear(&var);
+
+                        hr = IDxDiagContainer_GetProp(pDxDiagSystemInfo, L"dwDirectXVersionMinor", &var);
+                        if ( SUCCEEDED(hr) && var.vt == VT_UI4 )
+                        {
+                            dwDirectXVersionMinor = var.ulVal;
+                            bSuccessGettingMinor = true;
+                        }
+
+                        VariantClear(&var);
+                        hr = IDxDiagContainer_GetProp(pDxDiagSystemInfo, L"szDirectXVersionLetter", &var);
+                        if ( SUCCEEDED(hr)
+                                && var.vt == VT_BSTR
+                                && SysStringLen(var.bstrVal) )
+                        {
+                            cDirectXVersionLetter = tolower(var.bstrVal[0]);
+                            bSuccessGettingLetter = true;
+                        }
+
+                        VariantClear(&var);
+                        if ( bSuccessGettingMajor && bSuccessGettingMinor && bSuccessGettingLetter ) {
+                            bGotDirectXVersion = true;
+                        }
+
+                        assert(bGotDirectXVersion);
+
+                        IDxDiagContainer_Release(pDxDiagSystemInfo);
+                    }
+
+                    IDxDiagContainer_Release(pDxDiagRoot);
+                }
+            }
+
+            IDxDiagProvider_Release(pDxDiagProvider);
+        }
+
+        if ( bCleanupCOM ) {
+#if 0
+            CoUninitialize();
+#else
+            co_uninitialize();
+#endif
+        }
+
+        auto ValidateVersion = [](auto version, auto a1) -> bool {
+            sp_log("%d %d", version, a1);
+            sp_log("%c %c", version, a1);
+            return (version >= a1);
+        };
+
+#if 1
+        return bGotDirectXVersion && (ValidateVersion(dwDirectXVersionMajor, a1)
+                && ValidateVersion(dwDirectXVersionMinor, a2)
+                && ValidateVersion(cDirectXVersionLetter, a3)
+                );
+#else
+        return (bGotDirectXVersion
+            && (dwDirectXVersionMajor > a1 || dwDirectXVersionMajor == a1)             
+            && (dwDirectXVersionMinor > a2 || dwDirectXVersionMinor == a2) && cDirectXVersionLetter >= a3);
+
+#endif
+    }
+    else
+    {
+        bool (__cdecl * func)(unsigned int a1, unsigned int a2, char a3) = CAST(func, 0x0081C2A0);
+        return func(a1, a2, a3);
+    }
+}
+
+
+
+
+
 // ---------------------------------------------------------------------------------------------------
+void redirect_winmain();
+
 
 BOOL install_redirects()
 {
@@ -4738,6 +4903,12 @@ BOOL install_redirects()
 
         REDIRECT(0x005AC347, hook_controlfp);
     }
+	
+	
+	
+REDIRECT(0x005AC301, CheckDirectXVersionViaDxDiag);
+	
+REDIRECT(0x005AC500, create_sound_ifc);
 
     REDIRECT(0x005AC52F, parse_cmd);
 
@@ -4748,100 +4919,23 @@ BOOL install_redirects()
         sp_log("Patching the DirectInput8Create call\n");
     }
 	
+	redirect_winmain();
+	
 	FEMultiLineText_patch();
 	
 	
-	      //  FrontEndMenuSystem_patch();
+	        FrontEndMenuSystem_patch();
 			
 			
 			
-		//	pause_menu_root_patch();
+			pause_menu_root_patch();
 
 
     Timer_patch();
 
     //REDIRECT(0, sub_5952D0);
-
-    if constexpr (1)
-    {
-        moved_entities_patch();
-
-        pc_joypad_device_patch();
-
-        player_controller_inode_patch();
-
-        camera_mode_patch();
-
-        game_button_patch();
-
-        mouselook_controller_patch();
-
-        web_zip_state_patch();
-
-        lookat_target_controller_patch();
-
-        controller_patch();
-
-        scene_anim_patch();
-
-        camera_patch();
-
-        comic_panels_patch();
-
-        us_person_patch();
-
-        script_controller_patch();
-
-        nal_anim_controller_patch();
-
-        geometry_manager_patch();
-
-        input_mgr_patch();
-		
-    }
-
-
-    if constexpr (1) {
-        console_patch();
-    } else {
-        game_patch();
-    }
-
-
-    // @todo: windowed
-    REDIRECT(0x005AC4A9, register_class_and_create_window);
-
-
-    // @todo: debug menu
-    if constexpr (DEBUG_MENU_REIMPL)
-    {
-        REDIRECT(0x0052B4BF, spider_monkey::render);
-
-        HookFunc(0x004EACF0, (DWORD)aeps_RenderAll, 0, "Patching call to aeps::RenderAll");
-        HookFunc(0x0052B5D7, (DWORD)debug_nglListEndScene_hook, 0, "Hooking nglListEndScene to inject debug menu");
-        HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
-        REDIRECT(0x005E10EE, init_shadow_targets2);
-
-        auto writeDWORD = [](int address, DWORD newValue, [[maybe_unused]] const char* reason) -> void {
-            *((DWORD*)address) = newValue;
-        };
-        writeDWORD(0x0089C710, (DWORD)slf__create_progression_menu_entry, "Hooking first ocurrence of create_progession_menu_entry");
-        writeDWORD(0x0089C718, (DWORD)slf__create_progression_menu_entry, "Hooking second  ocurrence of create_progession_menu_entry");
-        writeDWORD(0x0089AF70, (DWORD)slf__create_debug_menu_entry, "Hooking first ocurrence of create_debug_menu_entry");
-        writeDWORD(0x0089C708, (DWORD)slf__create_debug_menu_entry, "Hooking second  ocurrence of create_debug_menu_entry");
-        writeDWORD(0x0089C720, (DWORD)slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry");
-        writeDWORD(0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler");
-    }
 	
-
-
-    SET_JUMP(0x0077A870, nglLoadTextureTM2);
-	
-	
-
-    return true;
-
-    wds_render_manager_patch();
+	    wds_render_manager_patch();
 
     wds_camera_manager_patch();
 
@@ -4857,8 +4951,7 @@ BOOL install_redirects()
     ngl_patch();
 
     //standalone patches
-    if constexpr (1)
-    {
+
         slc_manager_patch();
     
         tl_patch();
@@ -4870,19 +4963,13 @@ BOOL install_redirects()
         slab_allocator_patch();
 
         nfl_system_patch();
-    }
 
-    if constexpr (1)
-    {
         vm_patch();
 
         vm_thread_patch();
 
         vm_executable_patch();
-    }
-
-    if constexpr (1)
-    {
+ 
         us_decal_patch();
 
         us_lod_patch();
@@ -4890,10 +4977,7 @@ BOOL install_redirects()
         us_translucentshader_patch();
 
         us_simpleshader_patch();
-    }
 
-    if constexpr (1)
-    {
         sound_manager_patch();
 
         string_hash_dictionary_patch();
@@ -4973,10 +5057,7 @@ BOOL install_redirects()
         anim_record_patch();
 
         sound_interface_patch();
-    }
-
-    if constexpr (0)
-    {
+      
         script_executable_patch();
 
         script_patch();
@@ -4984,10 +5065,7 @@ BOOL install_redirects()
         script_instance_patch();
 
         script_access_patch();
-    }
 
-    if constexpr (1)
-    {
         combo_system_patch();
 
         combo_system_move_patch();
@@ -5005,10 +5083,7 @@ BOOL install_redirects()
         nglShader_patch();
 
         mission_manager_patch();
-    }
 
-    if constexpr (1)
-    {
         resource_pack_streamer_patch();
 
         resource_partition_patch();
@@ -5018,10 +5093,7 @@ BOOL install_redirects()
         resource_pack_standalone_patch();
 
         resource_key_patch();
-    }
 
-    if constexpr (1)
-    {
         tlResourceDirectory_patch();
         
         PanelMeshSection_patch();
@@ -5037,10 +5109,7 @@ BOOL install_redirects()
         MultiLineString_patch();
 
         menu_nav_bar_patch();
-    }
 
-    if constexpr (1)
-    {
         pause_menu_message_log_patch();
 
         pause_menu_save_load_display_patch();
@@ -5055,10 +5124,7 @@ BOOL install_redirects()
 
 
         unlockables_menu_patch();
-    }
 
-    if constexpr (1)
-    {
         PauseMenuSystem_patch();
 
         cg_mesh_patch();
@@ -5082,10 +5148,7 @@ BOOL install_redirects()
         animation_logic_system_shared_patch();
 
         mash_info_struct_patch();
-    }
 
-    if constexpr (1)
-    {
         worldly_pack_slot_patch();
 
         nsl_patch();
@@ -5101,10 +5164,7 @@ BOOL install_redirects()
         terrain_patch();
 
         chuck_callbacks_patch();
-    }
 
-    if constexpr (1)
-    {
         os_file_patch();
 
         traffic_patch();
@@ -5116,12 +5176,10 @@ BOOL install_redirects()
         ai_path_patch();
 
         ai_core_patch();
-    }
 
     animation_logic_system_patch();
 
-    if constexpr (1)
-    {
+
         interactable_interface_patch();
 
         event_manager_patch();
@@ -5129,10 +5187,7 @@ BOOL install_redirects()
         trigger_manager_patch();
 
         variant_interface_patch();
-    }
 
-    if constexpr (1)
-    {
         nalStreamInstance_patch();
 
         script_memtrack_patch();
@@ -5142,10 +5197,7 @@ BOOL install_redirects()
         hero_inode_patch();
 
         cut_scene_player_patch();
-    }
-
-    if constexpr (1)
-    {
+ 
         character_anim_controller_patch();
 
         usm_anim_player_patch();
@@ -5177,11 +5229,7 @@ BOOL install_redirects()
         nalChar_patch();
 
         ped_spawner_patch();
-    }
 
-    //resource handler patches
-    if constexpr (1)
-    {
         ai_interact_resource_handler_patch();
 
         cut_scene_resource_handler_patch();
@@ -5221,11 +5269,7 @@ BOOL install_redirects()
         gab_database_resource_handler_patch();
 
         als_resource_handler_patch();
-    }
 
-    //als
-    if constexpr (1)
-    {
         als_meta_anim_base_patch();
 
         als_meta_anim_swing_patch();
@@ -5263,9 +5307,7 @@ BOOL install_redirects()
         als_mocomp_patch();
 
         als_motion_compensator_patch();
-    }
 
-    return TRUE;
 
     tlInstanceBank_patch();
 
@@ -5273,10 +5315,124 @@ BOOL install_redirects()
 
     SET_JUMP(0x008223D8, start);
 
-    {
+
+        moved_entities_patch();
+
+        pc_joypad_device_patch();
+
+        player_controller_inode_patch();
+
+        camera_mode_patch();
+
+        game_button_patch();
+
+        mouselook_controller_patch();
+
+        web_zip_state_patch();
+
+        lookat_target_controller_patch();
+
+        controller_patch();
+
+        scene_anim_patch();
+
+        camera_patch();
+
+        comic_panels_patch();
+
+        us_person_patch();
+
+        script_controller_patch();
+
+        nal_anim_controller_patch();
+
+        geometry_manager_patch();
+
+        input_mgr_patch();
+		
+
+        console_patch();
+
+        game_patch();
+
+
+        FEMenuSystem_patch();
+
+        character_viewer_patch();
+
+        ghetto_mash_file_header_patch();
+
+        string_hash_patch();
+
+        mAvlTree_patch();
+
+        resource_pack_header_patch();
+
+        nfl_driver_patch();
+
+        memory_patch();
+		
+		       collide_aux_patch();
+
+        physical_interface_patch();
+
+
+        nglRenderList_patch();
+
+        swing_anchor_obbfilter_patch();
+
+        quick_anchor_info_patch();
+
+        glass_house_manager_patch();
+
+        TextureHandle_patch();
+
+        FileUSM_patch();
+
+        ai_state_machine_patch();
+
+        state_graph_patch();
+
+        character_viewer_patch();
+
+        filespec_patch();
+
+        entity_base_patch();
+
+        fe_mission_text_patch();
+
+        alternate_costumes_patch();
+
+        combat_state_patch();
+
+        line_anchor_patch();
+
+        resource_partition_patch();
+
+        eligible_pack_streamer_patch();
+
+        nglMesh_patch();
+
+        pole_swing_state_patch();
+
+        physics_inode_patch();
+
+        interaction_inode_patch();
+
+        pick_up_state_patch();
+
+        cursor_patch();
+
+        message_board_patch();  
+
+        param_block_patch();
+
+        physics_system_patch();
+		
+		   
         //REDIRECT(0x008224B1, initterm);
         REDIRECT(0x00822500, initterm);
-    }
+    
 
     REDIRECT(0x005AC4A9, register_class_and_create_window);
 
@@ -5288,7 +5444,7 @@ BOOL install_redirects()
     //spline_patch();
 
 
-    if constexpr (1) {
+
 
         anchor_query_visitor_patch();
 
@@ -5325,9 +5481,45 @@ BOOL install_redirects()
         IGOZoomOutMap_patch();
 
         run_state_patch();
-    }
 
+
+
+    // @todo: windowed
+    REDIRECT(0x005AC4A9, register_class_and_create_window);
+
+
+    // @todo: debug menu
+    if constexpr (DEBUG_MENU_REIMPL)
     {
+        REDIRECT(0x0052B4BF, spider_monkey::render);
+
+        HookFunc(0x004EACF0, (DWORD)aeps_RenderAll, 0, "Patching call to aeps::RenderAll");
+        HookFunc(0x0052B5D7, (DWORD)debug_nglListEndScene_hook, 0, "Hooking nglListEndScene to inject debug menu");
+        HookFunc(0x005AD77D, (DWORD)construct_client_script_libs_hook, 0, "Hooking construct_client_script_libs to inject my vm");
+        REDIRECT(0x005E10EE, init_shadow_targets2);
+
+        auto writeDWORD = [](int address, DWORD newValue, [[maybe_unused]] const char* reason) -> void {
+            *((DWORD*)address) = newValue;
+        };
+        writeDWORD(0x0089C710, (DWORD)slf__create_progression_menu_entry, "Hooking first ocurrence of create_progession_menu_entry");
+        writeDWORD(0x0089C718, (DWORD)slf__create_progression_menu_entry, "Hooking second  ocurrence of create_progession_menu_entry");
+        writeDWORD(0x0089AF70, (DWORD)slf__create_debug_menu_entry, "Hooking first ocurrence of create_debug_menu_entry");
+        writeDWORD(0x0089C708, (DWORD)slf__create_debug_menu_entry, "Hooking second  ocurrence of create_debug_menu_entry");
+        writeDWORD(0x0089C720, (DWORD)slf__destroy_debug_menu_entry__debug_menu_entry, "Hooking destroy_debug_menu_entry");
+        writeDWORD(0x0089C750, (DWORD)slf__debug_menu_entry__set_handler__str, "Hooking set_handler");
+    }
+	
+
+
+    SET_JUMP(0x0077A870, nglLoadTextureTM2);
+	
+	
+
+    return true;
+
+
+
+ 
         if constexpr (1)
         {
             if constexpr (1) {
@@ -5406,92 +5598,16 @@ BOOL install_redirects()
 
         
 
-        FEMenuSystem_patch();
 
-        character_viewer_patch();
-
-        ghetto_mash_file_header_patch();
-
-        string_hash_patch();
-
-        mAvlTree_patch();
-
-        resource_pack_header_patch();
-
-        nfl_driver_patch();
-
-        memory_patch();
-
-
-        if constexpr (1) {
+        if constexpr (0) {
             set_nop(0x0076ECF0, 2);
 
             set_nop(0x0076EA57, 2);
             set_nop(0x0076EA64, 2);
         }
 
-        collide_aux_patch();
-
-        physical_interface_patch();
-
-
-        nglRenderList_patch();
-
-        swing_anchor_obbfilter_patch();
-
-        quick_anchor_info_patch();
-
-        glass_house_manager_patch();
-
-        TextureHandle_patch();
-
-        FileUSM_patch();
-
-        ai_state_machine_patch();
-
-        state_graph_patch();
-
-        character_viewer_patch();
-
-        filespec_patch();
-
-        entity_base_patch();
-
-        fe_mission_text_patch();
-
-        alternate_costumes_patch();
-
-        combat_state_patch();
-
-        line_anchor_patch();
-
-        resource_partition_patch();
-
-        eligible_pack_streamer_patch();
-
-        nglMesh_patch();
-
-        pole_swing_state_patch();
-
-        physics_inode_patch();
-
-        interaction_inode_patch();
-
-        pick_up_state_patch();
-
-        cursor_patch();
-
-        message_board_patch();
-
-
-
-        
-        
-
-        param_block_patch();
-
-        physics_system_patch();
-    }
+ 
+    
 
 
     sp_log("Redirects have been installed\n");
@@ -5653,13 +5769,16 @@ int __stdcall WinMain(HINSTANCE hInstance,
         return 0;
     }
 
-    if (!sub_81C2A0(9u, 0, 99u)) {
+	
+	if (!CheckDirectXVersionViaDxDiag(9, 0, 'c'))
+    {
         auto *v162 = get_msg(g_fileUSM(), "MSGBOX_ERROR");
         auto *v7 = get_msg(g_fileUSM(), "MSGBOX_DX9");
 
         MessageBoxA(nullptr, v7, v162, 0x10u);
         return 0;
     }
+
 
     static Var<char> byte_965C08 = {0x00965C08};
     byte_965C08() = 1;
@@ -6244,7 +6363,9 @@ LABEL_94:
 
     delete[] dword_965C00();
 	
-	start();
+	install_hooks();
+
+
 
     return 0;
 }
