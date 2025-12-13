@@ -115,7 +115,7 @@ void FEText::Update(Float a2) {
 
 void FEText::SetText(global_text_enum a2)
 {
-    if constexpr (0)
+    if constexpr (1)
     {
         void (__fastcall *func)(FEText *, void *, global_text_enum) = CAST(func, get_vfunc(m_vtbl, 0x88));
         func(this, nullptr, a2);
