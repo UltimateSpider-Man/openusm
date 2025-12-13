@@ -329,18 +329,19 @@ BOOL restore_text_perms() {
     return VirtualProtect((void*)(TEXT_START), TEXT_END - TEXT_START, old_perms, &old_perms);
 }
 
-void ToggleFullScreen(bool isFullscreen)
-{
-    ESI_CALL(0x0076D230, isFullscreen);
 
-    // fix focus adjustment
-    os_developer_options::instance->set_flag(mString{ "ALWAYS_ACTIVE" }, g_config.WindowedMode);
+
+void ToggleFullScreen(bool windowed)
+{
+    // 0x0076D230 seems to take “windowed” (same semantics as g_Windowed)
+    ESI_CALL(0x0076D230, windowed);
+
+    // Keep the game responsive when not focused in windowed mode
+    os_developer_options::instance->set_flag(mString{ "ALWAYS_ACTIVE" }, windowed);
 }
 
-
 void init_hook(HWND hwnd) {
-  //  os_developer_options::instance->set_flag(mString{ "NO_LOAD_SCREEN" }, g_config.NoLoadScreen);
-
+	//  os_developer_options::instance->set_flag(mString{ "NO_LOAD_SCREEN" }, g_config.NoLoadScreen);
     bool windowedMode = g_config.WindowedMode;
 
     g_Windowed() = windowedMode;
@@ -349,6 +350,9 @@ void init_hook(HWND hwnd) {
     g_Windowed() = windowedMode;
     ToggleFullScreen(windowedMode);
 }
+
+
+
 
 
 HRESULT tga_hook(IDirect3DDevice9* dev, unsigned __int8* a2, unsigned int a3, IDirect3DBaseTexture9** a4)
@@ -902,11 +906,23 @@ LRESULT __stdcall WindowProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) 
             sub_5BCA80(wParam);
             result = DefWindowProcA(hWnd, Msg, wParam, lParam);
             break;
-        case WM_SYSKEYDOWN:
-        LABEL_5:
-            sub_5BCA60(1, byte_88CC68()[(uint16_t) wParam]);
-            result = DefWindowProcA(hWnd, Msg, wParam, lParam);
-            break;
+			case WM_SYSKEYDOWN:
+    // ALT+ENTER → toggle windowed / fullscreen
+    if (wParam == VK_RETURN && (lParam & (1 << 29)))   // 29th bit = ALT key
+    {
+        g_config.WindowedMode = !g_config.WindowedMode;
+        const bool windowed = g_config.WindowedMode;
+
+        g_Windowed() = windowed;
+        ToggleFullScreen(windowed);
+
+        return 0;  // handled
+    }
+
+LABEL_5:
+    sub_5BCA60(1, byte_88CC68()[(uint16_t)wParam]);
+    result = DefWindowProcA(hWnd, Msg, wParam, lParam);
+    break;
         case WM_SYSKEYUP:
             sub_5BCA60(0, byte_88CC68()[(uint16_t) wParam]);
             result = DefWindowProcA(hWnd, Msg, wParam, lParam);
@@ -1317,6 +1333,9 @@ void sub_5952D0()
     }
 }
 
+
+	static Var<int>  dword_96B430 = {0x0096B430};
+
 int __stdcall myWinMain(HINSTANCE hInstance,
                         [[maybe_unused]] HINSTANCE hPrevInstance,
                         LPSTR lpCmdLine,
@@ -1326,6 +1345,7 @@ int __stdcall myWinMain(HINSTANCE hInstance,
     }
 	FEMenuSystem *a2;
     main_menu_credits(a2, 1, 1);
+	
     g_settings() = new Settings{"Activision", "Ultimate Spider-Man"};
 
     char v6;
@@ -1347,7 +1367,8 @@ int __stdcall myWinMain(HINSTANCE hInstance,
         break;
     }
 
-    char Dest[100];
+		
+	char Dest[100];
     sprintf(Dest, "data\\usm_lt%c.usm", v6);
 
     g_fileUSM() = create_usm_file(Dest, nullptr);
@@ -1362,6 +1383,29 @@ int __stdcall myWinMain(HINSTANCE hInstance,
         MessageBoxA(nullptr, v7, v162, 0x10u);
         return 0;
     }
+	
+		char v15;
+		FILE *v16;
+	 switch ( dword_96B430() )
+    {
+      case 1:
+        v15 = 102;
+        break;
+      case 2:
+        v15 = 103;
+        break;
+      case 3:
+        v15 = 115;
+        break;
+      case 4:
+        v15 = 105;
+        break;
+      default:
+        v15 = 101;
+        break;
+    }
+    sprintf(Dest, "data\\packs\\blfusm%c.dat", v15);
+    v16 = fopen(Dest, "rb");
 
     if (!sub_81C2A0(9u, 0, 99u)) {
         auto *v162 = get_msg(g_fileUSM(), "MSGBOX_ERROR");
@@ -2025,6 +2069,7 @@ void create_window(LPCSTR lpClassName,
                    int a6,
                    int a7,
                    DWORD dwStyle) {
+					   
     int w;
     int h;
     DWORD dwStylea;
@@ -2032,56 +2077,54 @@ void create_window(LPCSTR lpClassName,
     int y = p_y;
     int x = dwExStyle;
     DWORD dwExStylea = 0;
-    if ((uint8_t) dwStyle) {
-        dwStylea = 0x80000000;
-        dwExStylea = 8;
+
+    if ((uint8_t)dwStyle)               // FULLSCREEN PATH
+    {
+        dwStylea   = 0x80000000;        // WS_POPUP
+        dwExStylea = 8;                 // WS_EX_TOPMOST
         x = 0;
         y = 0;
         w = GetSystemMetrics(SM_CXSCREEN);
         h = GetSystemMetrics(SM_CYSCREEN);
-    } else {
-        RECT Rect;
-        Rect.left = 0;
-        Rect.top = 0;
-        dwStylea = 0x80C80000;
-        Rect.right = a6;
-        Rect.bottom = a7;
-        AdjustWindowRectEx(&Rect, 0x80C80000, 0, 0);
-        w = Rect.right - Rect.left;
+    }
+    else                                // WINDOWED PATH
+    {
+        RECT Rect{0,0,a6,a7};
+        dwStylea = 0x80C80000;          // original game style
+        AdjustWindowRectEx(&Rect, dwStylea, FALSE, 0);
+
+        w = Rect.right  - Rect.left;
         h = Rect.bottom - Rect.top;
 
-        Var<int> dword_9874D4 = {0x009874D4};
-        Var<int> dword_955158 = {0x00955158};
+        Var<int> dword_9874D4{0x009874D4};
+        Var<int> dword_955158{0x00955158};
         dword_9874D4() = -Rect.left;
         dword_955158() = -Rect.top;
-        if (x == -1) {
+
+        if (x == -1)
             x = (GetSystemMetrics(SM_CXSCREEN) - w) / 2;
-        }
-
-        if (y == -1) {
+        if (y == -1)
             y = (GetSystemMetrics(SM_CYSCREEN) - h) / 2;
-        }
     }
-    SetLastError(0);
 
+    SetLastError(0);
     sp_log("create_window");
 
-    g_appHwnd() =
-        CreateWindowA(
-        //CreateWindowExA(dwExStylea,
-                              lpClassName,
-                              lpWindowName,
-                              dwStylea,
-                              x,
-                              y,
-                              w,
-                              h,
-                              nullptr,
-                              nullptr,
-                              hInstance,
-                              nullptr);
-
+g_appHwnd() = CreateWindowExA(
+    dwExStylea,
+    lpClassName,
+    lpWindowName,
+    dwStylea,
+    x, y, w, h,
+    nullptr,
+    nullptr,
+    hInstance,
+    nullptr);
 }
+
+
+
+
 
 //0x0081C140
 void register_class_and_create_window(LPCSTR lpClassName,
@@ -2098,11 +2141,20 @@ void register_class_and_create_window(LPCSTR lpClassName,
         DestroyWindow(g_appHwnd());
         g_appHwnd() = nullptr;
     }
-
+    const bool wnd = !g_config.WindowedMode;
+    create_window(lpClassName,
+                  lpWindowName,
+                  hInstance,
+                  X,
+                  Y,
+                  a5,
+                  a6,
+                  wnd ? 1u : 0u);
+				  
     register_class(lpClassName, windowProc, hInstance, a9);
 
-    bool wnd = WINDOWED_MODE_WND_FIX?  !g_config.WindowedMode : true;
-    create_window(lpClassName, lpWindowName, hInstance, X, Y, a5, a6, (int)wnd);
+bool fullscreen = !g_config.WindowedMode; // default fullscreen, -windowed -> window
+create_window(lpClassName, lpWindowName, hInstance, X, Y, a5, a6, (DWORD)fullscreen);
 }
 
 unsigned int hook_controlfp(unsigned int, unsigned int) {
@@ -5394,11 +5446,11 @@ BOOL install_redirects()
 	FEMultiLineText_patch();
 	
 	
-	      //  FrontEndMenuSystem_patch();
+	        FrontEndMenuSystem_patch();
 			
 			
 			
-		//	pause_menu_root_patch();
+			pause_menu_root_patch();
 
 
     Timer_patch();
@@ -6164,88 +6216,37 @@ std::vector<uint8_t> read_file(const fs::path& filePath) {
     return buffer;
 }
 
-static inline fs::path get_mods_root()
-{
-    // clone your "mods path" logic: current dir + "mods"
-    return fs::current_path() / "mods";
-}
-
-void enumerate_mods()
-{
-    Mods.clear();
-
-    const fs::path modsDir = get_mods_root();
+void enumerate_mods() {
+    fs::path modsDir = fs::current_path() / "mods";
     if (!fs::is_directory(modsDir))
         return;
 
-    const auto opts = fs::directory_options::skip_permission_denied;
+    for (const auto& entry : fs::directory_iterator(modsDir)) {
+        if (entry.is_regular_file()) {
+            const fs::path& path = entry.path();
+            std::vector<uint8_t> fileData = read_file(path);
 
-    for (fs::recursive_directory_iterator it(modsDir, opts), end; it != end; ++it)
-    {
-        if (!it->is_regular_file())
-            continue;
+            tlresource_type resType = TLRESOURCE_TYPE_NONE;
+            std::string ext = transformToLower(path.extension().string());
+            if (ext == ".dds" || ext == ".tga")
+                resType = TLRESOURCE_TYPE_TEXTURE;
+            else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf")
+                resType = TLRESOURCE_TYPE_MESH;
+            // @todo platform
+            else if (ext == ".pcmesh")  // @todo: other exts
+                resType = TLRESOURCE_TYPE_MESH_FILE;
 
-        const fs::path path = it->path();
-
-        tlresource_type resType = TLRESOURCE_TYPE_NONE;
-        std::string ext = transformToLower(path.extension().string());
-
-        if (ext == ".dds" || ext == ".tga")
-            resType = TLRESOURCE_TYPE_TEXTURE;
-        else if (ext == ".obj" || ext == ".fbx" || ext == ".dae" || ext == ".gltf" || ext == ".xbmesh")
-            resType = TLRESOURCE_TYPE_MESH;
-        else if (ext == ".pcmesh")
-            resType = TLRESOURCE_TYPE_MESH_FILE;
-        else
-            continue; // ignore everything else
-
-        std::vector<uint8_t> fileData = read_file(path);
-
-        // CLONE of your old behavior: hash only the stem (basename without extension)
-        const uint32_t hash = to_hash(path.stem().string().c_str());
-
-        Mods[hash] = Mod{ path, resType, std::move(fileData) };
-
-        // nicer debug: show relative path so you see which folder it came from
-        const fs::path rel = fs::relative(path, modsDir);
-        std::printf("name = %s\nhash = 0x%08X\nfile = %s\n\n",
-            path.stem().string().c_str(),
-            hash,
-            rel.generic_string().c_str());
+            auto hash = to_hash(path.stem().string().c_str());
+            Mods[hash] = Mod{path, resType, std::move(fileData)};
+            printf("name = %s\nhash = 0x%08X\n", path.stem().string().c_str(), hash);
+        }
     }
 
-#if MOD_MESH_DBG_REPLACE_ALL
-    dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH);
-#endif
+#   if MOD_MESH_DBG_REPLACE_ALL
+        dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH_FILE);
+		dbgReplaceMesh = getMod(0x08909065, TLRESOURCE_TYPE_MESH_FILE);
+#   endif
 }
-
-
-std::map<uint32_t, fs::path> ModPackDirs;
-
-void enumerate_mod_pack_dirs()
-{
-    ModPackDirs.clear();
-
-    const fs::path modsDir = fs::current_path() / "mods";
-    if (!fs::is_directory(modsDir))
-        return;
-
-    for (const auto& entry : fs::directory_iterator(modsDir))
-    {
-        if (!entry.is_directory())
-            continue;
-
-        const fs::path dir = entry.path();
-        const std::string name = dir.filename().string();
-        const uint32_t hash = to_hash(name.c_str());
-        ModPackDirs[hash] = dir;
-
-        std::printf("[packdir] %s -> 0x%08X\n", name.c_str(), hash);
-    }
-}
-
-
-
 
 
 
@@ -6271,8 +6272,10 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, [[maybe_unused]] LPVOID lpvReser
             }
         }
 
-        if (strstr(args, " -windowed"))
-            g_config.WindowedMode = true;
+if (strstr(args, " -windowed"))
+    g_config.WindowedMode = true;
+
+
         
         if (strstr(args, " -noloadscreen"))
             g_config.NoLoadScreen = true;
@@ -6280,7 +6283,6 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, [[maybe_unused]] LPVOID lpvReser
         bool res = install_hooks();
         if (res) 
         enumerate_mods();
-		enumerate_mod_pack_dirs();
 		    os_developer_options::os_developer_init();
             ini_parser::parse("debug_menu.ini", os_developer_options::instance);
 
