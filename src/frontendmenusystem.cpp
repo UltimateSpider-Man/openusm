@@ -268,19 +268,12 @@ void FrontEndMenuSystem::GoNextState() {
             if (nglCurScene() != nullptr) {
                 --this->field_30;
             } else {
-                if (!movie_manager::load_and_play_movie("mlogonosound", "Marvel_Logo", false) &&
-                    !movie_manager::load_and_play_movie("ATVI spin logo 640 none",
-                                                        "Activision",
-                                                        false) &&
-                    !movie_manager::load_and_play_movie("Treyarch_USM_logo",
-                                                        "TREYARCH_LOGO",
-                                                        false)) {
-                    movie_manager::load_and_play_movie("beenox_short", nullptr, false);
-										movie_manager::load_and_play_movie("attract", nullptr, false);
+
+										movie_manager::load_and_play_movie("insomniac_intro", nullptr, false);
 															        static string_hash sfx_id_hash{"FE_MUSIC_MAINMENU"};
 
         [[maybe_unused]] sound_instance_id id = sub_60B960(sfx_id_hash, 1.0, 1.0);
-                }
+                
 
                 if (this->field_30 != 10) {
                     continue;

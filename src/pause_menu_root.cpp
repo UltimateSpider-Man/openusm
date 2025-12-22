@@ -16,6 +16,7 @@
 #include "trace.h"
 #include "vtbl.h"
 #include "wds.h"
+#include "movie_manager.h"
 
 
 
@@ -221,107 +222,31 @@ void pause_menu_root::update_switching_heroes() {
 int addr_965c21 = 1;
 		 
 
-void pause_menu_root::OnCross(float* a2, int a3)
+
+void pause_menu_root::OnCross(int a2)
 {
-    if (addr_965c21) return;
+    int type = this->field_B0;
 
-    // If we’re in a special sub-mode, defer to base handler (kept from original)
-    if (field_B0 == 9) {
-        return;
-    }
+	                if (type == 0)
+		        THISCALL(0x00630460,this, a2);
+				    if (type == 1)
+		        THISCALL(0x00630460,this, a2);
+				    if (type == 2)
+		        THISCALL(0x00630460,this, a2);
+				    if (type == 3)
+		        THISCALL(0x00630460,this, a2);
+				    if (type == 4)
+		        THISCALL(0x00630460,this, a2);
+				    if (type == 5)
+		        THISCALL(0x00630460,this, a2);
+			        if (type == 6)
+                movie_manager::load_and_play_movie("credits", nullptr, false);
+				    if (type == 7)
+		        THISCALL(0x00630460,this, a2);
+				    if (type == 8)
+			    THISCALL(0x00630460,this, a2);
 
-    // The decompiled logic gates almost everything behind these checks
-    if (field_30 || field_2C) return;
-
- {
-
-        return;
-
-    };
-
-    // Helper that resets the list widgets like the decompiled loops do
-
-	 if (!field_F8)
-    {
-        switch (field_B0)
-        {
-            case 0: { // Resume / Accept variant A
-                    return;
-
-
-
-               // play_ui(ensure_sound_hash(0x20,  stru_96B9F0 /* "FE_PS_ACCEPT" */));
-                return;
-            }
-
-            case 1: { // Resume / Accept variant B
-
-            }
-
-            case 2: { // Resume / Accept variant C
-
-             //   play_ui(ensure_sound_hash(0x80,  stru_96B9E8 /* "FE_PS_ACCEPT" */));
-                return;
-            }
-
-            case 3: { // Options (fog toggle path present in decomp)
-			
-
-            }
-
-            case 5: { // Quit / End Mission / Confirmation path
-
-
-            }
-
-            case 6: { // Extras / Help
-
-                return;
-            }
-
-            case 7: { // Progression / Resume branch
-
-
-                }
-                return;
-            }
-
-                switch (field_B0)
-        {    case 8: { // Character select toggle when story not active
-
-
-
-
-                }
-                return;
-            } }
-
-    
-
-
-        
-        else if (field_B0 == 7) {
-            // Progression Mission (script) if mission state allows
-
-          
-
-
-                // Show “not available” text + cursor mode
-               // int h = field_A0->base.m_vtbl->field_114(field_A0, -1082130432);
-              //  field_A0->base.m_vtbl->SetTextBox(field_A0, 269, h);
-
-            
-        }
-        else if (field_B0 == 5) {
-            // Confirm “quit/end” path
-           // sub_61C520(this);
-        
-    }
-
-    // Common cleanup path (executed when the original decomp hopped to LABEL_24)
-    if (!field_2D) {
-
-}}
+}
 
 
 void pause_menu_root_patch() {
@@ -329,6 +254,10 @@ void pause_menu_root_patch() {
     {
         FUNC_ADDRESS(address, &pause_menu_root::_Load);
         set_vfunc(0x00893F48, address);
+    }
+    {
+        FUNC_ADDRESS(address, &pause_menu_root::OnCross);
+        set_vfunc(0x00893F84, address);
     }
     return;
 
@@ -339,12 +268,8 @@ void pause_menu_root_patch() {
 	
 	
     {
-        FUNC_ADDRESS(address, &pause_menu_root::OnCross);
-        set_vfunc(0x008A68D4, address);
-    }
-    {
         FUNC_ADDRESS(address, &pause_menu_root::OnUp);
-        //set_vfunc(0x00893F74, address);
+        set_vfunc(0x00893F74, address);
     }
 }
 

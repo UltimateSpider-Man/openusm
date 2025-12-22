@@ -85,6 +85,43 @@ void IGOZoomPOI::UpdateInScene()
     THISCALL(0x0062A160, this);
 }
 
+
+char zoom_map_ui::Draw()
+{
+
+	
+    THISCALL(0x00632360, this);
+}
+
+void zoom_map_ui::Update(Float a2)
+{
+
+	
+    THISCALL(0x00632020, this);
+}
+
+
+PanelFile zoom_map_ui::Init()
+{
+
+	
+    THISCALL(0x00644330, this);
+}
+
+void zoom_map_ui::OnSquare()
+{
+
+	
+    THISCALL(0x00621DA0, this);
+}
+
+int zoom_map_ui::OnX()
+{
+
+	
+    THISCALL(0x006125E0, this);
+}
+
 void IGOZoomOutMap_patch() {
     {
         FUNC_ADDRESS(address, &IGOZoomOutMap::SetZoomLevel);

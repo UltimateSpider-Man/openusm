@@ -5,8 +5,25 @@
 #include "float.hpp"
 #include "vector3d.h"
 
+#include "panelfile.h"
+
 struct zoom_map_ui {
     int field_0[144];
+	
+		char Draw();
+
+
+void Update(Float a2);
+
+
+
+PanelFile Init();
+
+
+void OnSquare();
+
+
+int OnX();
 };
 
 struct IGOZoomPOI {

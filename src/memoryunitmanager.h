@@ -25,6 +25,8 @@ struct Container {
 
 struct Observer {};
 
+struct InsertRemoveObserver {};
+
 extern void RegisterObserver(Observer *a1);
 
 extern void Initialize(uint32_t a1);
@@ -37,6 +39,9 @@ extern eStatus GetLastError();
 
 extern bool StartOperation();
 
+extern void RegisterInsertRemoveObserver(InsertRemoveObserver* a1);
+
+
 extern eStatus LoadGame(const Container &a1);
 
 extern int LoadGameSync(const Container &a1);
@@ -47,6 +52,8 @@ extern unsigned int GetGameSaveSize(unsigned int a1);
 extern Var<Observer *> mObserver;
 
 extern Var<eStatus> mLastError;
+
+extern Var<InsertRemoveObserver*> mInsertRemoveObserver;
 
 //0x007B1FF0
 extern int SaveGame(const Container &a1);

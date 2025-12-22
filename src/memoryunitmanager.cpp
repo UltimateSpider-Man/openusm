@@ -15,6 +15,8 @@ Var<Observer *> mObserver{0x00984818};
 
 Var<eStatus> mLastError{0x009847CC};
 
+Var<InsertRemoveObserver*> mInsertRemoveObserver{0x00984820};
+
 bool get_path(const char *a1, const char *a2, char *out, unsigned int str_len)
 {
     return (bool) CDECL_CALL(0x0081BE00, a1, a2, out, str_len);
@@ -81,6 +83,11 @@ bool Service()
 void SetLastError(eStatus a1)
 {
     mLastError() = a1;
+}
+
+void RegisterInsertRemoveObserver(InsertRemoveObserver* a1)
+{
+  MemoryUnitManager::InsertRemoveObserver() = *a1;
 }
 
 bool StartOperation()

@@ -2,6 +2,8 @@
 
 #include "femenu.h"
 
+#include "float.hpp"
+
 struct main_menu_start : FEMenu {
     int field_2C[61];
 
@@ -14,4 +16,11 @@ struct main_menu_start : FEMenu {
     FEMenuSystem *field_12C;
 
     main_menu_start(FEMenuSystem *a2, int a3, int a4);
+	
+void Update(Float a2);
+
+
 };
+
+
+extern void main_menu_start_patch();

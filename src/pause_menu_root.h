@@ -58,7 +58,7 @@ struct pause_menu_root : FEMenu {
     //virtual
     void Update(Float a2);
 	
-	void OnCross(float* a2, int a3);
+	void OnCross(int a2);
 };
 
 extern void pause_menu_root_patch();

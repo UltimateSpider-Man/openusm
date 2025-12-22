@@ -12,4 +12,12 @@ struct pause_menu_goals
 
     //0x0060FCD0
     mString get_element_desc(int a2);
+	
+	mString get_element_value(int element_index);
+	
+	
+	mString Init();
 };
+
+
+extern void pause_menu_goals_patch();
