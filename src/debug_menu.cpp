@@ -6,6 +6,8 @@
 #include "vm_executable.h"
 
 #include "os_developer_options.h"
+#include "pausemenusystem.h"
+#include "func_wrapper.h"
 
 #include "game.h"
 
@@ -302,6 +304,127 @@ void debug_menu::show()
 {
     active_menu = root_menu;
     grab_focus();
+}
+
+inline void nglGetStringDimensions2(nglFont* Font, const char* a2, int* a3, int* a4, Float a5, Float a6) {
+    CDECL_CALL(0x007798E0, Font, a2, a3, a4, a5, a6);
+}
+void getStringDimensions2(const char* str, int* width, int* height) {
+    nglGetStringDimensions2(*nglSysFont, str, width, height, 1.0, 1.0);
+}
+
+int getStringHeight2(const char* str) {
+    int height;
+    nglGetStringDimensions2(nglSysFont(), str, nullptr, &height, 1.0, 1.0);
+    return height;
+}
+
+std::string getRealText2(debug_menu_entry* entry) {
+    assert(entry->render_callback != nullptr);
+
+    auto v1 = entry->render_callback(entry);
+
+    char a2a[256]{};
+    if (v1.size() != 0) {
+        auto* v7 = v1.c_str();
+        auto* v4 = entry->text;
+        snprintf(a2a, 255u, "%s: %s", v4, v7);
+    }
+    else {
+        auto* v5 = entry->text;
+        snprintf(a2a, 255u, "%s", v5);
+    }
+
+    return { a2a };
+}
+
+unsigned int nglColor2(int r, int g, int b, int a)
+{
+    return ((a << 24) | (r << 16) | (g << 8) | (b & 255));
+}
+
+static constexpr DWORD MAX_ELEMENTS_PAGE = 18;
+
+
+void debug_menu::render_current_debug_menu() {
+    auto UP_ARROW{ " ^ ^ ^ " };
+    auto DOWN_ARROW{ " v v v " };
+
+    int num_elements = std::min((DWORD)MAX_ELEMENTS_PAGE, current_menu->used_slots - current_menu->window_start);
+    int needs_down_arrow = ((current_menu->window_start + MAX_ELEMENTS_PAGE) < current_menu->used_slots) ? 1 : 0;
+    pause_menu_system_ptr->Deactivate();
+	
+    int cur_width, cur_height;
+    int debug_width = 0;
+    int debug_height = 0;
+
+    auto get_and_update = [&](auto* x) {\
+        getStringDimensions2(x, &cur_width, &cur_height); \
+        debug_height += cur_height; \
+        debug_width = std::max(debug_width, cur_width); \
+        };
+
+    //printf("new size: %s %d %d (%d %d)\n", x, debug_width, debug_height, cur_width, cur_height);
+
+    get_and_update(current_menu->title);
+    get_and_update(UP_ARROW);
+
+    int total_elements_page = needs_down_arrow ? MAX_ELEMENTS_PAGE : current_menu->used_slots - current_menu->window_start;
+
+    for (int i = 0; i < total_elements_page; ++i) {
+        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
+        auto cur = getRealText2(entry);
+        get_and_update(cur.c_str());
+    }
+
+    if (needs_down_arrow) {
+        get_and_update(DOWN_ARROW);
+    }
+
+    nglQuad quad;
+
+    int menu_x_start = 20, menu_y_start = 40;
+    int menu_x_pad = 24, menu_y_pad = 18;
+
+    nglInitQuad(&quad);
+    nglSetQuadRect(&quad, menu_x_start, menu_y_start, menu_x_start + debug_width + menu_x_pad, menu_y_start + debug_height + menu_y_pad);
+    nglSetQuadColor(&quad, debug_menu::has_focus ? 0xC8141414 : 0x64141414);
+    nglSetQuadZ(&quad, 0.5f);
+    nglListAddQuad(&quad);
+    
+    int white_color = nglColor2(255, 255, 255, 255);
+    int yellow_color = nglColor2(255, 255, 0, 255);
+    int green_color = nglColor2(0, 255, 0, 255);
+    int pink_color = nglColor2(255, 0, 255, 255);
+
+    int render_height = menu_y_start;
+    render_height += 12;
+    int render_x = menu_x_start;
+    render_x += 8;
+    
+    nglListAddString(nglSysFont(), render_x, render_height, 0.2f, green_color, 1.f, 1.f, current_menu->title);
+    render_height += getStringHeight2(current_menu->title);
+
+    if (current_menu->window_start) {
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, UP_ARROW);
+    }
+
+    render_height += getStringHeight2(UP_ARROW);
+
+    for (int i = 0; i < total_elements_page; i++) {
+
+        int current_color = current_menu->cur_index == i ? yellow_color : white_color;
+
+        debug_menu_entry* entry = &current_menu->entries[current_menu->window_start + i];
+        auto cur = getRealText2(entry);
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, current_color, 1.f, 1.f, cur.c_str());
+        render_height += getStringHeight2(cur.c_str());
+    }
+
+    if (needs_down_arrow) {
+        nglListAddString(*nglSysFont, render_x, render_height, 0.2f, pink_color, 1.f, 1.f, DOWN_ARROW);
+        render_height += getStringHeight2(DOWN_ARROW);
+    }
 }
 
 

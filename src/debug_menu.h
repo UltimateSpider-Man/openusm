@@ -496,7 +496,7 @@ struct debug_menu {
         this->add_entry(&entry);
     }
 
-
+    void render_current_debug_menu();
 
     static void hide()
     {
