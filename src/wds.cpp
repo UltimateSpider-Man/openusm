@@ -210,6 +210,38 @@ void region_array::push_back(region *a2)
     }
 }
 
+entity* world_dynamics_system::create_and_add_entity(
+    const string_hash& type_hash,
+    const string_hash& id_hash,
+    const vector3d& pos,
+    const po* orientation,
+    int flags)
+{
+    // Step 1: Acquire entity from entity manager
+    entity* ent = this->ent_mgr.acquire_entity(type_hash, id_hash, flags);
+    
+    if (ent == nullptr) {
+        return nullptr;
+    }
+    
+    // Step 2: Set position
+    ent->set_abs_position(pos);
+    
+    // Step 3: Set orientation if provided
+    if (orientation != nullptr) {
+        ent->set_abs_po(*orientation);
+    }
+    
+    // Step 4: Make visible and add to world
+    ent->set_visible(true, false);
+    
+    // If there's an add_to_world or register function, call it here:
+    // this->add_entity(ent);
+    
+    return ent;
+}
+
+
 void build_region_list_radius(region_array *arr, region *reg, const vector3d &a3, Float a4, bool a5)
 {
     if ( reg != nullptr && arr != nullptr && !arr->contains(reg) )

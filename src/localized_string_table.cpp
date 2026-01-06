@@ -132,7 +132,7 @@ const char *localized_string_table::lookup_scripttext_string(int num) {
 
 const char *localized_string_table::lookup_localized_string(global_text_enum num)
 {
-    static constexpr auto GT_LAST = 478;
+    static constexpr auto GT_LAST = 479;
 
     assert(num >= 0);
     assert(num < GT_LAST);

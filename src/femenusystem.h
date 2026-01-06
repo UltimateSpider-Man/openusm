@@ -1,10 +1,11 @@
 #pragma once
 
 #include "font_index.h"
-
+#include "fe_menu_nav_bar.h"
 #include <cstdint>
 
 struct FEMenu;
+
 
 struct FEMenuSystem {
     std::intptr_t m_vtbl;
@@ -49,6 +50,23 @@ struct FEMenuSystem {
     //0x006298D0
     //virtual
     void UpdateButtonPresses();
+};
+
+struct FEMenuSystem2 {
+    std::intptr_t m_vtbl;
+
+    FEMenu **field_4;
+    font_index field_8;
+    int m_index;
+
+    int field_10;
+    int m_count;
+    uint16_t field_18[9];
+
+    char field_28;
+    char field_29;
+    menu_nav_bar *field_30;
+
 };
 
 extern void FEMenuSystem_patch();

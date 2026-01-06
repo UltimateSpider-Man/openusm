@@ -194,7 +194,7 @@ nglMeshFile *tlResourceDirectory<nglMeshFile, tlFixedString>::StandardLoad(const
 {
     TRACE("tlResourceDirectory<nglMeshFile, tlFixedString>::StandardLoad");
 
-    if constexpr (0)
+    if constexpr (1)
     {
         char Dest[256] {};
         _snprintf(Dest, 256u, "%s%s%s", nglMeshPath(), a1.to_string(), ".pcmesh");
@@ -259,7 +259,11 @@ void tlResourceDirectory_patch() {
         FUNC_ADDRESS(address, func);
         set_vfunc(0x00888F90, address);
     }
-
+    {
+        auto func = &tlResourceDirectory<nglMeshFile, tlFixedString>::StandardLoad;
+        FUNC_ADDRESS(address, func);
+        SET_JUMP(0x00770000, address);
+    }
     return;
     {
         auto func = &tlResourceDirectory<nglFont, tlFixedString>::StandardLoad;

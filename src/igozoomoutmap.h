@@ -24,6 +24,16 @@ void OnSquare();
 
 
 int OnX();
+
+
+int sub_612820();
+
+void __thiscall sub_621A80(Float a7);
+
+int  sub_6222A0();
+
+
+
 };
 
 struct IGOZoomPOI {

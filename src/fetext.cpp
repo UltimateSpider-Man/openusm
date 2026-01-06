@@ -214,7 +214,7 @@ void FEText::AdjustForJustification(float *a2, float *a3)
 void FEText::SetFlash(color32 a2, color32 a3, Float a4) {
     this->field_4C = a2;
     auto *v5 = this->flash_info;
-    this->field_64 |= 9u;
+    this->field_64 |= 10u;
     if (v5 != nullptr) {
         v5->field_0 = a3;
         this->flash_info->field_C = a4;
@@ -250,6 +250,13 @@ void FEText_patch() {
         FUNC_ADDRESS(address, &FEText::SetTextNoLocalize);
         set_vfunc(0x0087A06C, address);
         set_vfunc(0x0087A17C, address);
+    }
+	
+	    {
+        FUNC_ADDRESS(address, &FEText::SetFlash);
+        set_vfunc(0x0087A088, address);
+        set_vfunc(0x0087A198, address);
+		set_vfunc(0x0087AF00, address);
     }
 
 

@@ -70,6 +70,15 @@ struct mission_manager {
     {
         return this->m_district_table_containers[a2];
     }
+	
+	int is_story_mission_active();
+
+bool sub_5C5940();
+
+
+bool sub_5C58D0();
+
+
 
     mission_table_container *get_global_table()
     {

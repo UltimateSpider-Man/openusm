@@ -22,6 +22,8 @@
 #include "variables.h"
 #include "wds.h"
 
+#include "comic_panels.h"
+
 VALIDATE_SIZE(ptr_PanelQuad, 12u);
 VALIDATE_SIZE(ptr1_PanelQuad, 8u);
 
@@ -84,6 +86,9 @@ bool alternate_costumes::sub_614AC0(int a1) {
 
     return (v2[a1] == 1.0f);
 }
+
+
+
 
 void alternate_costumes::onActivate() {
     sp_log("alternate_costumes::onActivate:");
@@ -216,41 +221,41 @@ void alternate_costumes::OnTriangle(int a2) {
     THISCALL(0x00640BC0, this, a2);
 }
 
+
+
 void alternate_costumes::sub_614C60(int a2) {
-    if constexpr (1) {
-        for (auto &p : this->field_11C) {
-            if (p.field_4) {
-                if (p.field_4 == 1) {
-                    p.field_4 = a2 >= 0 ? 0 : 2;
-                } else if (p.field_4 == 2) {
-                    p.field_4 = a2 >= 0;
-                }
-            } else {
-                p.field_4 = (a2 >= 0) + 1;
-            }
-
-            nglTexture *v2;
-
-            if (p.field_4) {
-                if (p.field_4 == 1) {
-                    v2 = this->field_B0;
-                } else {
-                    v2 = this->field_B8;
-                }
-            } else {
-                v2 = this->field_A8;
-            }
-
-            auto *vtbl = bit_cast<fastcall_call(*)[1]>(p.field_0->m_vtbl);
-            void (__fastcall *SetTexture)(void *, void *, void *) = CAST(SetTexture, (*vtbl)[29]);
-
-            SetTexture(p.field_0, nullptr, v2);
+    for (int i = 0; i < 6; ++i) {
+        auto& entry = this->field_11C[i];
+        int field_4 = entry.field_4;
+        
+        if (field_4 == 0) {
+            field_4 = (a2 >= 0) ? 1 : 2;
         }
-    } else {
-        THISCALL(0x00614C60, this, a2);
+        else if (field_4 == 1) {
+            field_4 = (a2 >= 0) ? 0 : 2;
+        }
+        else if (field_4 == 2) {
+            field_4 = (a2 >= 0) ? 1 : 0;
+        }
+        
+        entry.field_4 = field_4;
+        
+        nglTexture* texture;
+        if (field_4 == 0) {
+            texture = this->field_A8;
+        }
+        else if (field_4 == 1) {
+            texture = this->field_B0;
+        }
+        else {
+            texture = this->field_B8;
+        }
+        
+        entry.field_0->SetTexture(texture);
+		
+		THISCALL(0x00614C60, this, a2);
     }
 }
-
 void alternate_costumes::update_selected(int a2)
 {
     if constexpr (0)
@@ -312,6 +317,11 @@ void alternate_costumes_patch() {
         FUNC_ADDRESS(address, &alternate_costumes::sub_640740);
         REDIRECT(0x0064090A, address);
     }
+	
+    {
+	FUNC_ADDRESS(address, &alternate_costumes::sub_614C60);
+	REDIRECT(0x00640920, address);
+    }
 
     {
         FUNC_ADDRESS(address, &alternate_costumes::sub_640510);
@@ -358,4 +368,5 @@ void alternate_costumes_patch() {
         FUNC_ADDRESS(address, &alternate_costumes::OnDown);
         set_vfunc(addr, address);
     }
+	
 }

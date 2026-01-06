@@ -151,6 +151,33 @@ void FEManager::ReleaseFrontEnd() {
     THISCALL(0x0060B920, this);
 }
 
+
+// Plays a UI/interface sound effect
+// out: Contains the sound hash code and receives instance ID
+void FEManager__PlayInterfaceSound(sound_instance_id2* out) {
+    if (out == nullptr) {
+        return;
+    }
+    
+    // In the actual game, this would:
+    // 1. Look up sound asset by hash code in out->field_0
+    // 2. Create a sound instance
+    // 3. Play the sound with specified volume/pitch (from stack params)
+    // 4. Return instance ID in out structure for potential stop/modify
+    
+    // The function signature from assembly shows additional params on stack:
+    // - float volume (typically 1.0f = 0x3F800000)
+    // - float pitch (typically 1.0f = 0x3F800000)
+    
+    // For stub: just acknowledge the sound would play
+    // Real implementation would interface with audio engine
+}
+
+// Wrapper for class method
+void FEManager::PlayInterfaceSound(sound_instance_id2* out) {
+    FEManager__PlayInterfaceSound(out);
+}
+
 void FEManager::ReleaseFont(font_index idx) {
     auto **fonts = this->field_4;
     auto &font = fonts[idx];

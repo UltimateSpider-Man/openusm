@@ -17,8 +17,31 @@ VALIDATE_SIZE(pause_menu_status, 0x130);
 
 pause_menu_status::pause_menu_status(FEMenuSystem *a2, int a3, int a4)
     : FEMenu(a2, 0, a3, a4, 0, 0) {
+		    // Initialize field_2C array (30 elements)
+    for (int i = 0; i < 30; ++i) {
+        field_2C[i] = 0;
+    }
+    
+    // Initialize field_A4 array (14 elements)
+    for (int i = 0; i < 14; ++i) {
+        field_A4[i] = 0;
+    }
+    
+    // Create and initialize pause_menu_awards
+    field_F0 = new pause_menu_awards();
+    field_F0->Init();
+    
+    // Create and initialize pause_menu_game
+    field_F4 = new pause_menu_game();
+    field_F4->Init();
+    
+    // Create and initialize pause_menu_goals
+    field_F8 = new pause_menu_goals(a2, a3, a4);
+    field_F8->Init();
     THISCALL(0x0060FF30, this, a2, a3, a4);
 }
+
+
 
 void pause_menu_status::OnTriangle(int a2) {
     THISCALL(0x0061D3F0, this, a2);
@@ -154,7 +177,7 @@ mString *pause_menu_status::get_element_desc(mString *out, int a3)
     TRACE("pause_menu_status::get_element_desc");
 
     mString *result;
-    if constexpr (0)
+    if constexpr (1)
     {
         auto v3 = this->field_EC;
         if ( v3 != 0 )
@@ -196,6 +219,11 @@ void pause_menu_status::update_selected() {
     THISCALL(0x0061CC30, this);
 }
 
+
+pause_menu_awards pause_menu_status::get_element_value(int index) {
+    THISCALL(0x006101B0, this, index);
+}
+
 void pause_menu_status_patch()
 {
     {
@@ -205,6 +233,30 @@ void pause_menu_status_patch()
 
     {
         FUNC_ADDRESS(address, &pause_menu_status::get_element_desc);
-        //REDIRECT(0x0061CD64, address);
+       // REDIRECT(0x0061CD64, address);
     }
+	
+	
+	    {
+	FUNC_ADDRESS(address, &pause_menu_status::update_selected);
+    REDIRECT(0x0061D235, address);
+    REDIRECT(0x0061D3CF, address);
+    REDIRECT(0x0061D415, address);
+    REDIRECT(0x0061D4CF, address);
+    REDIRECT(0x0062AB0D, address);
+    REDIRECT(0x0062AB7D, address);
+    REDIRECT(0x0062AE0C, address);
+    REDIRECT(0x0062AE31, address);
+    REDIRECT(0x0062AE5D, address);
+    REDIRECT(0x0062AE77, address);
+    REDIRECT(0x0063BE64, address);
+	
+	    }
+		
+			    {
+	FUNC_ADDRESS(address, &pause_menu_status::get_element_value);
+  //  REDIRECT(0x0061CCAF, address);
+	
+	    }
+		
 }

@@ -39,6 +39,10 @@ struct string_hash {
     bool operator>(const string_hash &rhs) const {
         return this->source_hash_code > rhs.source_hash_code;
     }
+	
+	    uint32_t get_hash() const {
+        return source_hash_code;
+    }
 
     operator size_t() const {
         return static_cast<size_t>(this->source_hash_code);
@@ -49,7 +53,10 @@ struct string_hash {
     static string_hash INVALID_STRING_HASH;
 
     [[nodiscard]] string_hash sub_501E80();
+	
+
 };
+
 
 namespace ai {
 extern Var<string_hash> cat_id_idle_walk_run;
@@ -100,3 +107,5 @@ extern constexpr inline std::uint32_t to_hash(const char *str) {
 }
 
 extern void string_hash_patch();
+
+

@@ -12,6 +12,8 @@
 
 VALIDATE_SIZE(FEMenuSystem, 0x2C);
 
+VALIDATE_SIZE(FEMenuSystem2, 0x30);
+
 bool getButtonState(int a2, int a3);
 
 FEMenuSystem::FEMenuSystem(int a2, font_index a3)

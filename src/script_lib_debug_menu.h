@@ -11,6 +11,7 @@ struct slf__create_debug_menu_entry__str__str__t : script_library_class::functio
         vm_str_t str0;
         vm_str_t str1;
     };
+	
 
     bool operator()(vm_stack &stack, [[maybe_unused]]script_library_class::function::entry_t entry) const;
 };
@@ -18,5 +19,7 @@ struct slf__create_debug_menu_entry__str__str__t : script_library_class::functio
 extern int vm_debug_menu_entry_garbage_collection_id;
 
 void construct_debug_menu_lib();
+
+	void init_script_debug_menu();
 
 extern void script_lib_debug_menu_patch();

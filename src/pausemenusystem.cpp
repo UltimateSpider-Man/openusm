@@ -38,7 +38,7 @@
 
 #include <cassert>
 
-VALIDATE_SIZE(PauseMenuSystem, 0x3Cu);
+VALIDATE_SIZE(PauseMenuSystem, 0x3cu);
 
 PauseMenuSystem *& pause_menu_system_ptr = var<PauseMenuSystem*>(0x00937B1C);
 

@@ -3,11 +3,14 @@
 #include "float.hpp"
 #include "font_index.h"
 
+
 struct nglFont;
 struct IGOFrontEnd;
 struct PauseMenuSystem;
 struct FrontEndMenuSystem;
 struct PanelQuad;
+
+struct sound_instance_id2;
 
 struct FEManager {
     FEManager() = default;
@@ -58,6 +61,10 @@ struct FEManager {
     void ReleaseFonts();
 
     void ReleaseFont(font_index idx);
+	
+    static void PlayInterfaceSound(sound_instance_id2* out);
+
+
 
     static const char *font_name_array[5];
 };

@@ -4,7 +4,7 @@
 
 struct localized_string_table {
     struct internal {
-        const char *field_0[478];
+        const char *field_0[479];
         const char *field_778[1];
     };
 

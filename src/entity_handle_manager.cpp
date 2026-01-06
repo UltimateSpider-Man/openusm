@@ -114,6 +114,40 @@ entity_base *entity_handle_manager::find_entity(const string_hash &arg0,
     return result;
 }
 
+
+
+/*
+
+extern "C" {
+#include "utility/lua.h"
+#include "utility/lauxlib.h"
+#include "utility/lualib.h"
+#include <map>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+}
+
+static lua_State* g_L;
+
+entity_base* __cdecl find_entity(const string_hash* a1, entity_flavor_t a2, bool a3)
+{
+    return (entity_base*)CDECL_CALL(0x004DC300, a1, a2, a3);
+}
+
+
+int lua_find_entity(lua_State* L)
+{
+    const char* name = luaL_checkstring(L, 1);
+    string_hash hash = { to_hash(name) };
+    entity_base* entity = find_entity(&hash, (entity_flavor_t)(SWITCH | BEAM), 0);
+    if (!entity)
+        return luaL_error(L, "Entity '%s' not found", name);
+
+    lua_pushlightuserdata(L, entity);
+    return 1;
+}
+*/
 void entity_handle_manager::deregister_entity(entity_base *a1) {
     TRACE("deregister_entity %s", a1->field_10.to_string());
 

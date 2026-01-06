@@ -26,7 +26,11 @@ struct slc_manager {
 
     //0x0059EC00
     static void un_mash_all_funcs();
+	
+	
 };
+
+
 
 #if !STANDALONE_SYSTEM
 extern _std::vector<script_library_class *> *& slc_manager_class_array;

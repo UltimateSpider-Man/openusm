@@ -7,6 +7,15 @@
 #include "trace.h"
 #include "panelquad.h"
 
+#include "femenusystem.h"
+
+#include "comic_panels.h"
+
+#include "movie_manager.h"
+
+#include "sound_instance_id.h"
+
+
 VALIDATE_SIZE(unlockables_menu, 0x100u);
 
 unlockables_menu::unlockables_menu(FEMenuSystem *a2, int a3, int a4)
@@ -14,10 +23,64 @@ unlockables_menu::unlockables_menu(FEMenuSystem *a2, int a3, int a4)
     THISCALL(0x00614020, this, a2, a3, a4);
 }
 
-void unlockables_menu::OnCross(int a2) {
-    sp_log("unlockables_menu::OnCross():");
 
-    THISCALL(0x0062DB20, this, a2);
+
+void unlockables_menu::OnCross(int a2) {
+	sp_log("unlockables_menu::OnCross():");
+
+    static bool initialized = false;
+    static string_hash fe_ps_accept;
+    
+    if (!initialized) {
+        initialized = true;
+    }
+    		    static string_hash sound_id ("fe_ps_accept");
+
+    sound_instance_id id = sub_60B960(sound_id, 1.0, 1.0);
+    
+    int panel_id;
+    
+    switch (this->field_F4) {
+    case 3:
+        this->field_2C->MakeActive(10);
+        comic_panels::game_play_panel()->field_67 = 1;
+		panel_id = 11;
+        return;
+        
+    case 1:
+        panel_id = 14;
+        break;
+        
+    case 2:
+        panel_id = 12;
+        break;
+        
+    case 0:
+        panel_id = 10;
+        break;
+        
+    case 4:
+        panel_id = 15;
+        break;
+        
+    case 5:
+        movie_manager::load_and_play_movie("x-men_trailer", "x-men_trailer", 0);
+        return;
+        
+    case 6:
+        panel_id = 16;
+        break;
+	case 7:
+        panel_id = 17;
+        break;
+        
+    default:
+        return;
+    }
+    
+    this->field_2C->MakeActive(panel_id);
+    comic_panels::game_play_panel()->field_67 = 1;
+	THISCALL(0x0062DB20, this, a2);
 }
 
 void unlockables_menu::OnTriangle(int a2) {
@@ -59,12 +122,12 @@ void unlockables_menu_patch() {
         FUNC_ADDRESS(address, &unlockables_menu::_Load);
         set_vfunc(0x00894918, address);
     }
-    return;
-
-    {
+	{
         FUNC_ADDRESS(address, &unlockables_menu::OnCross);
         set_vfunc(0x00894954, address);
     }
+    return;
+
 
     {
         FUNC_ADDRESS(address, &unlockables_menu::OnTriangle);

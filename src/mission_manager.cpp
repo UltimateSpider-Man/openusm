@@ -40,6 +40,46 @@ mission_manager::mission_manager()
     }
 }
 
+int mission_manager::is_story_mission_active()
+{
+    TRACE("mission_manager::is_story_mission_active");
+
+    if constexpr (1)
+    {
+        if (!this->m_script) {
+            return -1;
+        }
+
+        mString var_name;
+		mString{"g_mission_type"};
+
+
+        auto *address = script_manager::get_game_var_address(var_name, 0, 0);
+        int result = static_cast<int>(*reinterpret_cast<float *>(address));
+
+        var_name.finalize(0);
+
+        return result;
+    }
+    else
+    {
+        return THISCALL(0x005BAFF0, this);
+    }
+}
+
+bool mission_manager::sub_5C58D0()
+{
+  return strncmp(this->m_script->field_0.guts, "s01_fathers_pride", 65535u)
+      && strncmp(this->m_script->field_0.guts, "s02_workout", 65535u);
+	  
+	  return (bool)THISCALL(0x005C58D0,this);
+}
+
+bool mission_manager::sub_5C5940()
+{
+       return (bool)THISCALL(0x005C5940,this);
+}
+
 void mission_manager::prepare_unload_script()
 {
     if ( this->m_script != nullptr )

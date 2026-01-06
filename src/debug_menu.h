@@ -102,6 +102,11 @@ struct debug_menu_entry {
     bool is_checked() const { return m_checked; }
 	    debug_menu_entry *prev;
     debug_menu_entry *next;
+		const char* m_name2;
+
+const char* get_name() const {
+    return this->m_name2;
+}
 
 
     void set_step_size(float a2)

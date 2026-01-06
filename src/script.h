@@ -3,6 +3,8 @@
 #include "string_hash.h"
 #include "variable.h"
 
+#include "func_wrapper.h"
+
 struct script_instance;
 struct script_object;
 struct vm_thread;
@@ -24,6 +26,27 @@ inline script_instance * get_gsoi()
 inline script_object * get_gso()
 {
     return script::gso();
+}
+
+inline bool exec_thread(bool a1) {
+    return (bool)CDECL_CALL(0x0064E740, a1);
+}
+
+// 0x0064E770
+inline bool exec_thread_no_wait() {
+    return (bool)CDECL_CALL(0x0064E770);
+}
+
+
+
+inline vm_thread * new_thread(int a1, script_instance *a2){
+    return (vm_thread *)CDECL_CALL(0x0064E520, a1, a2);
+}
+
+
+inline vm_thread* sub_5028B0(string_hash function_hash, script_instance* instance)
+{
+     return (vm_thread*)CDECL_CALL(0x005028B0, function_hash, instance);
 }
 
 } // namespace script

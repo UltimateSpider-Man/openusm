@@ -36,6 +36,7 @@ struct Cursor {
     void sub_5A67D0(int a1, int a2, int a3, int a4);
 
     void sub_5A6790();
+	
 
     void sub_581C60();
 

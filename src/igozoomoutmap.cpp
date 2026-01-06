@@ -8,6 +8,7 @@
 #include "string_hash.h"
 #include "variable.h"
 #include "wds.h"
+#include "vector3d.h"
 
 #include <utility.h>
 
@@ -121,6 +122,23 @@ int zoom_map_ui::OnX()
 	
     THISCALL(0x006125E0, this);
 }
+
+int zoom_map_ui::sub_612820() {
+
+	
+	THISCALL(0x00612820, this);
+}
+
+void zoom_map_ui::sub_621A80(Float a7)
+{
+	THISCALL(0x00621A80, this, a7);
+}
+
+int zoom_map_ui::sub_6222A0()
+{
+   THISCALL(0x006222A0, this);
+}
+
 
 void IGOZoomOutMap_patch() {
     {

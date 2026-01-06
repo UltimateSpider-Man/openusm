@@ -2070,6 +2070,8 @@ slf__disable_zoom_map__num__t::slf__disable_zoom_map__num__t(const char *a3) : f
     m_vtbl->__cl = CAST(m_vtbl->__cl, address);
 }
 
+
+
 struct slf__distance3d__vector3d__vector3d__t : script_library_class::function {
     slf__distance3d__vector3d__vector3d__t(const char *a3);
 

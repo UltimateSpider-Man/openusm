@@ -143,12 +143,13 @@ struct entity : signaller {
     float get_age();
 
     void set_age(Float a2);
+	
 
     void set_recursive_age(Float a2);
 
     ////// VIRTUAL FUNCTIONS: END //////
 
-    bool is_visible() const {
+    bool is_visible2() const {
         return (this->field_4 & 0x200) != 0;
     }
 
@@ -199,3 +200,6 @@ struct entity : signaller {
 };
 
 extern void entity_patch();
+
+
+

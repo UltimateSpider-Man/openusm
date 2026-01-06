@@ -15,7 +15,7 @@
 #include "utility.h"
 #include "log.h"
 
-VALIDATE_SIZE(PanelFile, 0x3C);
+VALIDATE_SIZE(PanelFile, 0x3c);
 VALIDATE_OFFSET(PanelFile, field_28, 0x28);
 
 void PanelFile::Draw() {

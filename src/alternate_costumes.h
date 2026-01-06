@@ -26,6 +26,8 @@ struct ptr1_PanelQuad {
     int field_4;
 };
 
+
+
 struct alternate_costumes : FEMenu {
     FEMenuSystem *field_2C;
     PanelFile *field_30;
@@ -63,8 +65,6 @@ struct alternate_costumes : FEMenu {
 
     void sub_640510(int idx);
 
-    void sub_614C60(int a2);
-
     bool sub_614AC0(int a1);
 
     //0x00614B60
@@ -72,6 +72,10 @@ struct alternate_costumes : FEMenu {
 
     //0x00640840
     void update_selected(int a2);
+	
+	
+	void sub_614C60(int a2);
+
 
     //0x00646790
     //virtual
