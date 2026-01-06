@@ -112,6 +112,8 @@ void vm_thread::operator delete(void *ptr)
     pool().remove(ptr);
 }
 
+
+
 const vm_executable * vm_thread::get_running_executable() const
 {
     if ( this->PC != nullptr ) {
