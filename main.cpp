@@ -262,6 +262,7 @@
 #include "web_polytube.h"
 #include "window_manager.h"
 #include "worldly_pack_slot.h"
+#include "script_file_loader.h"
 
 #include "main_menu_credits.h"
 
@@ -294,6 +295,8 @@
 #include "ngl.h"
 #include "ngl_font.h"
 #include "game.h"
+
+#include "pause_menu_goals.h"
 
 
 #include "fixedstring.h"
@@ -428,6 +431,12 @@ BOOL install_patches()
         }
 
         REDIRECT(0x0056BDAA, nglLoadMeshFileInternal);
+		        REDIRECT(0x0056C126, nglLoadMeshFileInternal);
+        REDIRECT(0x0056C244, nglLoadMeshFileInternal);
+        REDIRECT(0x0076FF90, nglLoadMeshFileInternal);
+        REDIRECT(0x007700D9, nglLoadMeshFileInternal);
+        REDIRECT(0x00778649, nglLoadMeshFileInternal);
+		
 
         // these funcs mysteriously are only used for TGA
         // and kinda look like it too, but I don't see em being used...
@@ -4168,7 +4177,368 @@ void create_game_flags_menu(debug_menu *parent)
 void create_game_flags_menu(debug_menu* parent);
 
 
+#include "debug_menu.h"
+#include "entity.h"
+#include "mstring.h"
+#include "resource_manager.h"
+#include "string_hash.h"
+#include "wds.h"
 
+#include <vector>
+
+
+static std::vector<entity*> g_spawned;
+static int g_counter = 0;
+
+// =============================================================================
+// HEROES & VILLAINS - Characters from Ultimate Spider-Man (2005)
+// Based on Script menu character listing
+// =============================================================================
+static const char* CHARS[] = {
+    // -------------------------------------------------------------------------
+    // HEROES
+    // -------------------------------------------------------------------------
+    "usm_blacksuit",            // Black Suit Spider-Man
+    "usm_wrestling",            // Wrestling Spider-Man
+    "venom_eddie",              // Venom (Eddie Brock)
+    "venom_spider",             // Venom Spider form
+    "arachno_man",              // Arachno-Man
+    "arachno_man_face_morph",
+    
+    // -------------------------------------------------------------------------
+    // MAIN VILLAINS
+    // -------------------------------------------------------------------------
+    "carnage",                  // Carnage
+    "carnage_face_morph",
+    "rhino",                    // Rhino
+    "electro_suit",             // Electro (suited)
+    "electro_naked",            // Electro (naked/transformed)
+    "shocker",                  // Shocker
+    "beetle",                   // Beetle
+    "beetle_face_morph",
+    "boomerang",                // Boomerang
+    "boomerang_face_morph",
+    "wolverine",                // Wolverine
+    
+    // -------------------------------------------------------------------------
+    // ALEX O'HIRN (Rhino civilian identity)
+    // -------------------------------------------------------------------------
+    "alex_ohirn",
+    "alex_ohirn_face_morph",
+    "alex_ohirn_prison",
+    "alex_ohirn_prison_face_morph",
+    
+    // -------------------------------------------------------------------------
+    // EDDIE BROCK (Venom civilian identity)
+    // -------------------------------------------------------------------------
+    "eddie_brock",
+    "eddie_brock_face_morph",
+    "eddie_brock_sr",           // Eddie Brock Sr. (father)
+    "eddie_brock_sr_face_morph",
+    
+    // -------------------------------------------------------------------------
+    // BOLIVAR TRASK
+    // -------------------------------------------------------------------------
+    "bolivar_trask_old",
+    "bolivar_trask_old_face_morph",
+    
+    // -------------------------------------------------------------------------
+    // GANG MEMBERS - FTB (Freaks)
+    // -------------------------------------------------------------------------
+    "gang_ftb_base",
+    "gang_ftb_boss",
+    "gang_ftb_lt",
+    
+    // -------------------------------------------------------------------------
+    // GANG MEMBERS - MERCS (Mercenaries)
+    // -------------------------------------------------------------------------
+    "gang_mercs_base",
+    "gang_mercs_boss",
+    "gang_mercs_lt",
+    
+    // -------------------------------------------------------------------------
+    // GANG MEMBERS - SKINS
+    // -------------------------------------------------------------------------
+    "gang_skin_base",
+    "gang_skin_boss",
+    "gang_skin_lt",
+    
+    // -------------------------------------------------------------------------
+    // GANG MEMBERS - SRK (Sharks)
+    // -------------------------------------------------------------------------
+    "gang_srk_base",
+    "gang_srk_boss",
+    "gang_srk_lt",
+    
+    // -------------------------------------------------------------------------
+    // GMU CIVILIANS (Generic Metropolitan Unit)
+    // -------------------------------------------------------------------------
+    "gmu_businessman",
+    "gmu_child_male",
+    "gmu_cop_fat",
+    "gmu_cop_thin",
+    "gmu_cop_thin_igc",          // In-Game Cinematic variant
+    "gmu_jogger_fem",
+    "gmu_lab_fem",
+    "gmu_man",
+    "gmu_medic_fem",
+    
+    // -------------------------------------------------------------------------
+    // PEDESTRIANS
+    // -------------------------------------------------------------------------
+    "ped_fem",
+    "ped_male",
+    
+    nullptr
+};
+
+// =============================================================================
+// SPAWN SINGLE CHARACTER
+// =============================================================================
+static entity* spawn_character(const char* char_name, const vector3d& spawn_pos) {
+    if (g_world_ptr == nullptr) {
+        return nullptr;
+    }
+    
+    // Create unique entity ID
+    char id_buf[32];
+    sprintf(id_buf, "DBGSPN_%d", g_counter++);
+    
+    string_hash type_hash{int(to_hash(char_name))};
+    string_hash id_hash{id_buf};
+    
+    // Acquire entity (works for characters in loaded packs)
+    entity* spawned = g_world_ptr->ent_mgr.acquire_entity(type_hash, id_hash, 129);
+    
+    if (spawned != nullptr) {
+        spawned->set_abs_position(spawn_pos);
+        spawned->set_visible(true, false);
+        g_spawned.push_back(spawned);
+    }
+    
+    return spawned;
+}
+
+// =============================================================================
+// TEST SPAWN CALLBACK - Single character
+// =============================================================================
+void test_spawn_callback(debug_menu_entry* entry) {
+    printf("\n========================================\n");
+    printf("test_spawn_callback CALLED\n");
+    printf("========================================\n");
+    
+    if (entry == nullptr) {
+        printf("ERROR: entry is nullptr!\n");
+        return;
+    }
+    
+    printf("entry->text = '%s'\n", entry->text);
+    printf("entry->entry_type = %d\n", (int)entry->entry_type);
+    
+    if (g_world_ptr == nullptr) {
+        printf("ERROR: g_world_ptr is nullptr!\n");
+        return;
+    }
+    
+    // Get hero
+    entity* hero = g_world_ptr->get_hero_ptr(0);
+    if (hero == nullptr) {
+        printf("ERROR: hero is nullptr!\n");
+        return;
+    }
+    
+    printf("Hero found at: <%.2f, %.2f, %.2f>\n",
+           hero->get_abs_position()[0],
+           hero->get_abs_position()[1],
+           hero->get_abs_position()[2]);
+    
+    // Calculate spawn position
+    po hero_po = hero->get_abs_po();
+    vector3d pos = hero_po.get_position();
+    vector3d fwd = hero_po.get_z_facing();
+    
+    vector3d spawn_pos;
+    spawn_pos[0] = pos[0] + fwd[0] * 3.0f;
+    spawn_pos[1] = pos[1] + 0.5f;
+    spawn_pos[2] = pos[2] + fwd[2] * 3.0f;
+    
+    printf("Spawn position: <%.2f, %.2f, %.2f>\n",
+           spawn_pos[0], spawn_pos[1], spawn_pos[2]);
+    
+    const char* char_name = entry->text;
+    printf("Creating hash for: '%s'\n", char_name);
+    
+    string_hash type_hash{int(to_hash(char_name))};
+    printf("Type hash: 0x%08X\n", type_hash.source_hash_code);
+    
+    entity* spawned = spawn_character(char_name, spawn_pos);
+    
+    if (spawned != nullptr) {
+        printf("SUCCESS! Entity spawned: %p\n", (void*)spawned);
+        printf("Total spawned: %zu\n", g_spawned.size());
+    } else {
+        printf("FAILED! acquire_entity returned nullptr\n");
+        printf("Character '%s' not found in any loaded pack!\n", char_name);
+    }
+    
+    printf("========================================\n\n");
+    
+    debug_menu::hide();
+}
+
+// =============================================================================
+// SPAWN ALL CALLBACK - Spawn all characters in a grid
+// =============================================================================
+void test_spawn_all_callback(debug_menu_entry*) {
+    printf("\n========================================\n");
+    printf("SPAWN ALL CHARACTERS\n");
+    printf("========================================\n");
+    
+    if (g_world_ptr == nullptr) {
+        printf("ERROR: g_world_ptr is nullptr!\n");
+        debug_menu::hide();
+        return;
+    }
+    
+    entity* hero = g_world_ptr->get_hero_ptr(0);
+    if (hero == nullptr) {
+        printf("ERROR: hero is nullptr!\n");
+        debug_menu::hide();
+        return;
+    }
+    
+    po hero_po = hero->get_abs_po();
+    vector3d base_pos = hero_po.get_position();
+    vector3d fwd = hero_po.get_z_facing();
+    vector3d right = hero_po.get_x_facing();
+    
+    int spawned_count = 0;
+    int failed_count = 0;
+    
+    // Grid layout: 5 columns
+    const int COLS = 5;
+    const float SPACING = 2.5f;
+    
+    for (int i = 0; CHARS[i] != nullptr; ++i) {
+        int row = i / COLS;
+        int col = i % COLS;
+        
+        // Calculate grid position in front of hero
+        vector3d spawn_pos;
+        spawn_pos[0] = base_pos[0] + fwd[0] * (5.0f + row * SPACING) + right[0] * ((col - 2) * SPACING);
+        spawn_pos[1] = base_pos[1] + 0.5f;
+        spawn_pos[2] = base_pos[2] + fwd[2] * (5.0f + row * SPACING) + right[2] * ((col - 2) * SPACING);
+        
+        entity* spawned = spawn_character(CHARS[i], spawn_pos);
+        
+        if (spawned != nullptr) {
+            spawned_count++;
+            printf("[OK] %s\n", CHARS[i]);
+        } else {
+            failed_count++;
+            printf("[FAIL] %s\n", CHARS[i]);
+        }
+    }
+    
+    printf("========================================\n");
+    printf("Spawned: %d | Failed: %d\n", spawned_count, failed_count);
+    printf("========================================\n\n");
+    
+    debug_menu::hide();
+}
+
+// =============================================================================
+// POP CALLBACK - Remove last spawned
+// =============================================================================
+void test_pop_callback(debug_menu_entry*) {
+    printf("test_pop_callback called\n");
+    
+    if (g_spawned.empty()) {
+        printf("Nothing to pop\n");
+        debug_menu::hide();
+        return;
+    }
+    
+    entity* e = g_spawned.back();
+    g_spawned.pop_back();
+    
+    if (e != nullptr && g_world_ptr != nullptr) {
+        printf("Releasing entity...\n");
+        g_world_ptr->ent_mgr.release_entity(e);
+        printf("Released\n");
+    }
+    
+    debug_menu::hide();
+}
+
+// =============================================================================
+// POP ALL CALLBACK - Remove all spawned
+// =============================================================================
+void test_pop_all_callback(debug_menu_entry*) {
+    printf("Releasing all spawned entities...\n");
+    
+    int count = 0;
+    while (!g_spawned.empty()) {
+        entity* e = g_spawned.back();
+        g_spawned.pop_back();
+        
+        if (e != nullptr && g_world_ptr != nullptr) {
+            g_world_ptr->ent_mgr.release_entity(e);
+            count++;
+        }
+    }
+    
+    printf("Released %d entities\n", count);
+    debug_menu::hide();
+}
+
+// =============================================================================
+// INIT FUNCTION - Call this to add menu entries
+// =============================================================================
+void init_simple_spawner(debug_menu* menu) {
+    printf("\n========================================\n");
+    printf("init_simple_spawner called\n");
+    printf("menu = %p\n", (void*)menu);
+    printf("========================================\n");
+    
+    if (menu == nullptr) {
+        printf("ERROR: menu is nullptr!\n");
+        return;
+    }
+    
+    // Add utility entries at top
+    {
+        debug_menu_entry e{mString{"Spawn All Characters"}};
+        e.set_game_flags_handler(test_spawn_all_callback);
+        menu->add_entry(&e);
+        printf("Added [SPAWN ALL] entry\n");
+    }
+    
+    {
+        debug_menu_entry e{mString{"Pop All Characters"}};
+        e.set_game_flags_handler(test_pop_all_callback);
+        menu->add_entry(&e);
+        printf("Added [POP ALL] entry\n");
+    }
+    
+    {
+        debug_menu_entry e{mString{"Pop Character"}};
+        e.set_game_flags_handler(test_pop_callback);
+        menu->add_entry(&e);
+        printf("Added [POP] entry\n");
+    }
+    
+    // Add character entries
+    for (int i = 0; CHARS[i] != nullptr; ++i) {
+        debug_menu_entry e{mString{CHARS[i]}};
+        e.set_game_flags_handler(test_spawn_callback);
+        menu->add_entry(&e);
+        printf("Added entry: '%s'\n", CHARS[i]);
+    }
+    
+    printf("init_simple_spawner complete\n");
+    printf("========================================\n\n");
+}
 
 
 
@@ -4183,6 +4553,7 @@ void create_script_menu()
         debug_menu_entry* block = v1.alloc_block(script_menu, 4);
         block[0] = debug_menu_entry{ script_menu };
         debug_menu::root_menu->add_entry(script_menu);
+		    init_simple_spawner(script_menu);
     }
 }
 
@@ -5009,6 +5380,8 @@ void menu_setup(int game_state, int keyboard) {
                 g_game_ptr->unpause();
                 debug_enabled = !debug_enabled;
                 current_menu = debug_menu::root_menu;
+
+
                 custom();
 
             }
@@ -5056,6 +5429,7 @@ void menu_setup(int game_state, int keyboard) {
 void init_shadow_targets2()
 {
     debug_menu::init();
+	
 
     CDECL_CALL(0x00592E80);
 }
@@ -5256,6 +5630,8 @@ string_hash names[120] = {
     to_hash("display_car_combat_warning_panel(num)")
 };
 
+
+
 bool __fastcall slf__create_debug_menu_entry(script_library_class::function* func, void*, vm_stack* stack, void* unk)
 {
     stack->pop(4);
@@ -5264,19 +5640,19 @@ bool __fastcall slf__create_debug_menu_entry(script_library_class::function* fun
     sub_65BB36(func, stack, stack_ptr, 1);
     char** strs = bit_cast<char**>(stack->SP);
 
-    //printf("Entry: %s ", strs[0]);
     debug_menu_entry entry{};
     entry.entry_type = debug_menu_entry_type::dUNDEFINED;
     strcpy(entry.text, strs[0]);
 
     printf("entry.text = %s\n", entry.text);
-
+    
     script_instance* instance = stack->my_thread->inst;
     printf("Total funcs: %d\n", instance->get_parent()->total_funcs);
     void* res = add_debug_menu_entry(script_menu, &entry);
 
     script_executable* se = stack->my_thread->ex->owner->parent;
     printf("total_script_objects = %d\n", se->total_script_objects);
+    
     for (auto i = 0; i < se->total_script_objects; ++i) {
         auto* so = se->script_objects[i];
         printf("Name of script_object = %s\n", so->name.to_string());
@@ -5296,24 +5672,27 @@ bool __fastcall slf__create_debug_menu_entry(script_library_class::function* fun
 
             fn_entry.set_data(nullptr);
             fn_entry.set_submenu(nullptr);
-			fn_entry.m_id = j;
-			fn_entry.set_script_handler_from_char(instance, fn->fullname.to_string());
+            fn_entry.m_id = j;
+            fn_entry.set_script_handler_from_char(instance, fn->fullname.to_string());
             add_debug_menu_entry(so_menu, &fn_entry);
         }
 
         printf("\n");
     }
-	
 
     se->add_allocated_stuff_for_debug_menu(vm_debug_menu_entry_garbage_collection_id, (int)res, 0);
-
-    //printf("%08X\n", res);
 
     int push = (int)res;
     auto sz = sizeof(push);
     memcpy((void*)stack->SP, &push, sz);
     stack->SP += sz;
     return 1;
+}
+
+
+void onFrame() {
+    updateAnimatedMods();  // Advance all GIF animations
+    // ... rest of rendering
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -5341,14 +5720,32 @@ BOOL install_redirects()
 	FEMultiLineText_patch();
 	
 	
+	
+	
+	
 	        FrontEndMenuSystem_patch();
 			
-			
+			script_file_loader_patch();
 			
 			pause_menu_root_patch();
+			
+			pause_menu_goals_patch();
+			
+			
+			unlockables_menu_patch();
+			
+		    pause_menu_message_log_patch();
+			
+			
+			pause_menu_status_patch();
 
+          FEText_patch();
+
+        alternate_costumes_patch();
 
     Timer_patch();
+	
+	script_lib_debug_menu_patch();
 
     //REDIRECT(0, sub_5952D0);
 
@@ -5631,7 +6028,6 @@ BOOL install_redirects()
 
     if constexpr (0)
     {
-        pause_menu_message_log_patch();
 
         pause_menu_save_load_display_patch();
 
@@ -6054,7 +6450,7 @@ BOOL install_redirects()
 
         fe_mission_text_patch();
 
-        alternate_costumes_patch();
+
 
         combat_state_patch();
 
@@ -6097,6 +6493,12 @@ BOOL install_redirects()
 }
 
 
+#include "mod.h"  // Updated mod.h with GIF support
+#include <fstream>
+
+namespace fs = std::filesystem;
+
+
 std::vector<uint8_t> read_file(const fs::path& filePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file) 
@@ -6110,6 +6512,7 @@ std::vector<uint8_t> read_file(const fs::path& filePath) {
     file.read(reinterpret_cast<char*>(buffer.data()), sz);
     return buffer;
 }
+
 
 void enumerate_mods() {
     fs::path modsDir = fs::current_path() / "mods";
@@ -6139,9 +6542,10 @@ void enumerate_mods() {
 
 #   if MOD_MESH_DBG_REPLACE_ALL
         dbgReplaceMesh = getMod(0x1189ab87, TLRESOURCE_TYPE_MESH_FILE);
-		dbgReplaceMesh = getMod(0x08909065, TLRESOURCE_TYPE_MESH_FILE);
+		dbgReplaceMesh = getMod(0xCB5B8BA9, TLRESOURCE_TYPE_MESH_FILE);
 #   endif
 }
+
 
 
 
@@ -6151,6 +6555,8 @@ BOOL install_hooks() {
     return set_text_to_writable() && install_redirects() && install_patches() &&
         restore_text_perms();
 }
+
+#include "modloader.h"
 
 BOOL WINAPI DllMain(HINSTANCE, DWORD fdwReason, [[maybe_unused]] LPVOID lpvReserved) {
     //printf("DLLMain %lu 0x%08X\n", fdwReason, (int) lpvReserved);
@@ -6178,13 +6584,16 @@ if (strstr(args, " -windowed"))
         bool res = install_hooks();
         if (res) 
         enumerate_mods();
+			         init_hooks();
 		    os_developer_options::os_developer_init();
             ini_parser::parse("debug_menu.ini", os_developer_options::instance);
-
         return res;
+		
 
     } else if (fdwReason == DLL_PROCESS_DETACH) {
+		           destroy_hooks();
         FreeConsole();
+
     }
 
     return TRUE;

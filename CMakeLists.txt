@@ -43,13 +43,39 @@ list(APPEND flags
 
 project(USM-dev)
 
+# Lua library setup
+set(LUA_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/lua/include" CACHE PATH "Lua include directory")
+set(LUA_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/lua/lib" CACHE PATH "Lua library directory")
 
+# Use x86 lib for 32-bit build, x64 for 64-bit
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(LUA_LIBRARY "${LUA_LIB_DIR}/lua_x86.lib")
+else()
+    set(LUA_LIBRARY "${LUA_LIB_DIR}/lua_x64.lib")
+endif()
 
+add_library(lua STATIC IMPORTED)
+set_target_properties(lua PROPERTIES
+    IMPORTED_LOCATION "${LUA_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${LUA_INCLUDE_DIR}"
+)
 
-    
+# MinHook library setup
+set(MINHOOK_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/minhook/include" CACHE PATH "MinHook include directory")
+set(MINHOOK_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/minhook/lib" CACHE PATH "MinHook library directory")
 
+# Use x86 lib for 32-bit build, x64 for 64-bit
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(MINHOOK_LIBRARY "${MINHOOK_LIB_DIR}/minhook_x86.lib")
+else()
+    set(MINHOOK_LIBRARY "${MINHOOK_LIB_DIR}/minhook_x64.lib")
+endif()
 
-
+add_library(minhook STATIC IMPORTED)
+set_target_properties(minhook PROPERTIES
+    IMPORTED_LOCATION "${MINHOOK_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${MINHOOK_INCLUDE_DIR}"
+)
 
 if(MINGW)
     set(CMAKE_SHARED_LIBRARY_PREFIX "")
@@ -111,6 +137,8 @@ target_compile_options(openusm
   PRIVATE
     ${flags}
 )
+
+
 
 add_library(memory "./src/memory.cpp" "./src/memory.h")
 target_compile_options(memory
@@ -338,10 +366,10 @@ target_link_libraries(openusm PUBLIC physics)
 target_link_libraries(USM PUBLIC physics)
 target_link_libraries(USM PUBLIC ${_COMMON_LINK_LIBS})
 target_link_libraries(openusm PUBLIC charanimtype mash chuck nfl ngl nal nsl utility)
-target_link_libraries(openusm PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z)
+target_link_libraries(openusm PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z lua minhook)
 
 target_link_libraries(USM PUBLIC charanimtype mash chuck nfl ngl nal nsl utility)
-target_link_libraries(USM PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z)
+target_link_libraries(USM PUBLIC winmm psapi d3d9 dinput8 dxguid dsound assimp z lua minhook)
 
 
 if(USE_GLM)
